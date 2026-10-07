@@ -1,0 +1,34 @@
+{
+  "name": "julius-finance",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "e2e": "playwright test",
+    "marcas": "node scripts/gerar-catalogo-marcas.mjs",
+    "dados-iniciais": "tsx scripts/gerar-dados-iniciais.ts"
+  },
+  "dependencies": {
+    "@tabler/icons-preact": "^3.49.0",
+    "dexie": "^4.4.6",
+    "preact": "^10.29.8"
+  },
+  "devDependencies": {
+    "@preact/preset-vite": "^2.10.6",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/preact": "^3.2.4",
+    "@types/node": "^22.20.5",
+    "fake-indexeddb": "^6.2.5",
+    "jsdom": "^30.1.2",
+    "simple-icons": "^16.34.0",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.3",
+    "vitest": "^5.0.3"
+  }
+}
