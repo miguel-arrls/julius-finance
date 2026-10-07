@@ -93,6 +93,29 @@ describe('auxiliares', () => {
     ).toEqual(['valorTotal']);
   });
 
+  it('montarDespesa: avulsa salva sem vencimento ganha "vencimento" a confirmar, sem repetir, e perde ao preencher', () => {
+    const avulsaForm = (o: Partial<ValoresForm>) => v({ descricao: 'Conserto', valor: '150,00', mes: '2026-11', ...o });
+    expect(montarDespesa(avulsaForm({ vencimento: '', aConfirmar: [] }), { id: 'x' }).aConfirmar).toEqual(['vencimento']);
+    expect(montarDespesa(avulsaForm({ vencimento: '', aConfirmar: ['valorTotal'] }), { id: 'x' }).aConfirmar).toEqual(['valorTotal', 'vencimento']);
+    expect(montarDespesa(avulsaForm({ vencimento: '', aConfirmar: ['vencimento', 'valorTotal'] }), { id: 'x' }).aConfirmar).toEqual([
+      'vencimento',
+      'valorTotal',
+    ]);
+    expect(montarDespesa(avulsaForm({ vencimento: '2026-10-10', aConfirmar: ['vencimento'] }), { id: 'x' }).aConfirmar).toEqual([]);
+    expect(montarDespesa(avulsaForm({ vencimento: '2026-10-10', aConfirmar: [] }), { id: 'x' }).aConfirmar).toEqual([]);
+  });
+
+  it('o formulário não mostra "vencimento" a confirmar antes de salvar', () => {
+    expect(atualizarAConfirmar(v({ tipo: 'avulsa', vencimento: '', aConfirmar: [] }))).toEqual([]);
+  });
+
+  it('parcelada e recorrente salvas sem vencimento não ganham "vencimento" a confirmar', () => {
+    const p = montarDespesa(v({ tipo: 'parcelada', descricao: 'TV', valorTotal: '300,00', numParcelas: '3', primeiroVencimento: '', mesPrimeira: '2026-11' }), { id: 'p' });
+    expect(p.aConfirmar).toEqual([]);
+    const r = montarDespesa(v({ tipo: 'recorrente', descricao: 'Luz', valor: '100,00', inicio: '2026-10-08' }), { id: 'r' });
+    expect(r.aConfirmar).toEqual([]);
+  });
+
   it('mudouCobranca considera só o que altera as cobranças', () => {
     expect(mudouCobranca(recorrente(), recorrente({ valor: 4990 }))).toBe(true);
     expect(mudouCobranca(recorrente(), recorrente({ descricao: 'Outra' }))).toBe(false);
@@ -111,7 +134,8 @@ describe('round-trip valoresDeDespesa -> montarDespesa', () => {
   const semCarimbo = ({ criadaEm: _c, atualizadaEm: _a, ...resto }: Record<string, unknown>) => resto;
   const casos = {
     avulsa: avulsa({ descricao: desc, valor: 120000, marcaId: 'm1', observacoes: 'obs ç', meioPagamentoId: 'mp-cartao', dataCompra: '2026-09-30', aConfirmar: ['valorTotal'] }),
-    'avulsa sem vencimento': avulsa({ descricao: desc, valor: 120000, vencimento: undefined, mes: '2026-12' }),
+    // Avulsa salva sem vencimento sempre fica com "vencimento" a confirmar.
+    'avulsa sem vencimento': avulsa({ descricao: desc, valor: 120000, vencimento: undefined, mes: '2026-12', aConfirmar: ['vencimento'] }),
     'parcelada com valorParcela': parcelada({ descricao: desc, valorTotal: 120000, valorParcela: 40500, marcaId: 'm1' }),
     'parcelada sem valorParcela': parcelada({ descricao: desc, valorTotal: 120000, comecaNaParcela: 2 }),
     'recorrente anual com fim': recorrente({ descricao: desc, frequencia: 'anual', inicio: '2026-03-15', fim: '2029-03-15' }),

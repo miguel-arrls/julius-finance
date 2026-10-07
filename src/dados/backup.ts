@@ -187,6 +187,16 @@ async function substituirTudo(base: JuliusDB, d: DadosBackup): Promise<void> {
   await base.config.put({ ...d.configuracao, id: 'config' });
 }
 
+/** O arquivo é um backup: o último backup é o maior entre o registrado nele e a data da exportação. */
+function comUltimoBackup(a: ArquivoBackup): DadosBackup {
+  const datas = [a.dados.configuracao.ultimoBackupEm, a.exportadoEm].filter(
+    (s): s is string => typeof s === 'string' && s !== '' && !Number.isNaN(Date.parse(s)),
+  );
+  if (datas.length === 0) return a.dados;
+  const maior = datas.reduce((x, y) => (Date.parse(y) > Date.parse(x) ? y : x));
+  return { ...a.dados, configuracao: { ...a.dados.configuracao, ultimoBackupEm: maior } };
+}
+
 /** Guarda uma cópia dos dados atuais e substitui tudo pelo arquivo. Tudo ou nada. */
 export async function importar(base: JuliusDB, arquivo: ArquivoBackup): Promise<void> {
   await base.transaction('rw', base.tables, async () => {
@@ -201,7 +211,7 @@ export async function importar(base: JuliusDB, arquivo: ArquivoBackup): Promise<
     const todos = await base.snapshots.orderBy('seq').toArray();
     const excesso = todos.slice(0, Math.max(0, todos.length - MAX_SNAPSHOTS));
     if (excesso.length > 0) await base.snapshots.bulkDelete(excesso.map((s) => s.id));
-    await substituirTudo(base, arquivo.dados);
+    await substituirTudo(base, comUltimoBackup(arquivo));
   });
 }
 

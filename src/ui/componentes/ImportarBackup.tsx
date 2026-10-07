@@ -1,14 +1,25 @@
 import { useState } from 'preact/hooks';
 import { desfazerImportacao, importar, lerBackup, resumirBackup } from '../../dados/backup';
-import type { ArquivoBackup } from '../../dados/db';
+import type { ArquivoBackup, JuliusDB } from '../../dados/db';
+import { materializarTodas } from '../../dados/repositorio';
 import { formatarDataHora } from '../../dominio/datas';
+import type { DataISO } from '../../dominio/tipos';
 import { lerArquivoTexto } from '../arquivo';
-import { usarBase } from '../contexto';
+import { usarBase, usarHoje } from '../contexto';
 import type { Estado } from '../estado';
 import { plural } from '../textos';
 import { usarToast } from './Toast';
 
 const dataValida = (s: string) => s !== '' && !Number.isNaN(Date.parse(s));
+
+/** Cria as cobranças que faltam das recorrentes depois de trocar os dados. Uma falha aqui não desfaz a troca. */
+export async function materializarSemFalhar(base: JuliusDB, hoje: DataISO): Promise<void> {
+  try {
+    await materializarTodas(base, hoje);
+  } catch (err) {
+    console.error(err);
+  }
+}
 
 export function ImportarBackup({
   estado,
@@ -20,6 +31,7 @@ export function ImportarBackup({
   aoConcluir?: () => void;
 }) {
   const base = usarBase();
+  const hoje = usarHoje();
   const mostrar = usarToast();
   const [erro, setErro] = useState('');
   const [pendente, setPendente] = useState<ArquivoBackup | null>(null);
@@ -49,6 +61,7 @@ export function ImportarBackup({
   async function desfazer() {
     try {
       await desfazerImportacao(base);
+      await materializarSemFalhar(base, hoje);
       mostrar('Importação desfeita');
     } catch (err) {
       console.error(err);
@@ -61,6 +74,7 @@ export function ImportarBackup({
     setImportando(true);
     try {
       await importar(base, pendente);
+      await materializarSemFalhar(base, hoje);
       setPendente(null);
       mostrar('Dados importados', { rotulo: 'Desfazer', executar: () => void desfazer() });
       aoConcluir?.();

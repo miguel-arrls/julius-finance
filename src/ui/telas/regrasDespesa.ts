@@ -157,7 +157,10 @@ export function montarDespesa(v: ValoresForm, ctx: { id: string; marcaId?: strin
     atualizadaEm: '',
   };
   if (v.tipo === 'avulsa') {
-    return { ...comum, tipo: 'avulsa', valor: lerReais(v.valor)!, vencimento: v.vencimento || undefined, mes: v.vencimento ? mesDe(v.vencimento) : v.mes };
+    // Avulsa salva sem vencimento fica com o vencimento a confirmar.
+    const aConfirmar: CampoAConfirmar[] =
+      !v.vencimento && !comum.aConfirmar.includes('vencimento') ? [...comum.aConfirmar, 'vencimento'] : comum.aConfirmar;
+    return { ...comum, aConfirmar, tipo: 'avulsa', valor: lerReais(v.valor)!, vencimento: v.vencimento || undefined, mes: v.vencimento ? mesDe(v.vencimento) : v.mes };
   }
   if (v.tipo === 'parcelada') {
     const n = Number(v.numParcelas);

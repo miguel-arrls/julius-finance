@@ -4,7 +4,7 @@ import { exportar, importar, lerBackup, serializar } from '../../src/dados/backu
 import type { JuliusDB } from '../../src/dados/db';
 import * as repo from '../../src/dados/repositorio';
 import { Backup } from '../../src/ui/telas/Backup';
-import { avulsa } from '../fabricas';
+import { avulsa, recorrente } from '../fabricas';
 import { ComEstado, HOJE, novaBase, renderizar } from './auxiliar';
 
 let base: JuliusDB;
@@ -100,6 +100,56 @@ describe('Backup', () => {
       fireEvent.click(await screen.findByRole('button', { name: 'Desfazer' }));
       await waitFor(async () => expect((await base.despesas.toArray()).map((d) => d.id)).toEqual(['x']));
       expect(confirmar).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('depois de importar ou desfazer, cria as cobranças que faltam das recorrentes', () => {
+    const contar = () => base.lancamentos.where('despesaId').equals('re1').count();
+
+    async function arquivoDe(montar: (b: JuliusDB) => Promise<void>): Promise<string> {
+      const outra = await novaBase();
+      await repo.inicializarPadrao(outra);
+      await montar(outra);
+      return serializar(await exportar(outra, '2026-10-05T12:00:00.000Z'));
+    }
+
+    it('ao importar', async () => {
+      const texto = await arquivoDe(async (outra) => {
+        await repo.salvarDespesa(outra, recorrente(), { hoje: HOJE });
+        await outra.lancamentos.where('despesaId').equals('re1').delete();
+      });
+      abrir();
+      await enviar(texto);
+      fireEvent.click(await screen.findByRole('button', { name: 'Substituir meus dados' }));
+      await waitFor(async () => expect(await base.despesas.get('re1')).toBeDefined());
+      await waitFor(async () => expect(await contar()).toBe(13));
+    });
+
+    it('ao desfazer pelo aviso logo após importar', async () => {
+      await repo.salvarDespesa(base, recorrente(), { hoje: HOJE });
+      await base.lancamentos.where('despesaId').equals('re1').delete();
+      const texto = await arquivoDe(async (outra) => {
+        await repo.salvarDespesa(outra, avulsa({ id: 'x' }), { hoje: HOJE });
+      });
+      abrir();
+      await enviar(texto);
+      fireEvent.click(await screen.findByRole('button', { name: 'Substituir meus dados' }));
+      fireEvent.click(await screen.findByRole('button', { name: 'Desfazer' }));
+      await waitFor(async () => expect(await base.despesas.get('re1')).toBeDefined());
+      await waitFor(async () => expect(await contar()).toBe(13));
+    });
+
+    it('ao desfazer pelo botão da tela', async () => {
+      vi.spyOn(window, 'confirm').mockReturnValue(true);
+      await repo.salvarDespesa(base, recorrente(), { hoje: HOJE });
+      await base.lancamentos.where('despesaId').equals('re1').delete();
+      const lido = lerBackup(await arquivoDe(async (outra) => repo.salvarDespesa(outra, avulsa({ id: 'x' }), { hoje: HOJE })));
+      if (!lido.ok) throw new Error(lido.erro);
+      await importar(base, lido.arquivo);
+      abrir();
+      fireEvent.click(await screen.findByRole('button', { name: /^Desfazer importação de / }));
+      await waitFor(async () => expect(await base.despesas.get('re1')).toBeDefined());
+      await waitFor(async () => expect(await contar()).toBe(13));
     });
   });
 });

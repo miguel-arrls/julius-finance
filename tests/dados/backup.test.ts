@@ -62,7 +62,8 @@ describe('exportar e importar', () => {
     const destino = await novaBase();
     await importar(destino, (lido as { ok: true; arquivo: ArquivoBackup }).arquivo);
     const copia = await exportar(destino, '2026-10-06T12:00:00.000Z');
-    expect(copia.dados).toEqual(original.dados);
+    // O arquivo importado é um backup: a data dele passa a ser o último backup do destino.
+    expect(copia.dados).toEqual({ ...original.dados, configuracao: { ...original.dados.configuracao, ultimoBackupEm: '2026-10-06T12:00:00.000Z' } });
     expect(copia.dados.despesas.find((d) => d.id === 'av1')!.descricao).toBe('Açaí & Cia — ção ⟦⟧');
   });
 
@@ -84,6 +85,27 @@ describe('exportar e importar', () => {
     expect(await desfazerImportacao(base)).toBe(true);
     expect((await exportar(base, 'x')).dados).toEqual(antes.dados);
     expect(await desfazerImportacao(base)).toBe(false);
+  });
+
+  it.each([
+    ['sem data no arquivo: vale a exportação', undefined, '2026-10-06T12:00:00.000Z', '2026-10-06T12:00:00.000Z'],
+    ['data do arquivo mais antiga: vale a exportação', '2026-09-01T08:00:00.000Z', '2026-10-06T12:00:00.000Z', '2026-10-06T12:00:00.000Z'],
+    ['data do arquivo mais nova: vale a do arquivo', '2026-10-07T08:00:00.000Z', '2026-10-06T12:00:00.000Z', '2026-10-07T08:00:00.000Z'],
+    ['exportação sem data: vale a do arquivo', '2026-09-01T08:00:00.000Z', '', '2026-09-01T08:00:00.000Z'],
+    ['nenhuma data: continua sem', undefined, '', undefined],
+  ])('importar: último backup é o maior entre o do arquivo e a exportação (%s)', async (_caso, doArquivo, exportadoEm, esperado) => {
+    const bruto = arquivoValido();
+    bruto.exportadoEm = exportadoEm;
+    bruto.dados.configuracao = { versaoEsquema: 1, ...(doArquivo ? { ultimoBackupEm: doArquivo } : {}) };
+    await importar(base, lerBackupOk(JSON.stringify(bruto)));
+    expect((await repo.obterConfig(base)).ultimoBackupEm).toBe(esperado);
+  });
+
+  it('desfazer a importação não usa a data da cópia como último backup', async () => {
+    await popular(base);
+    await importar(base, lerBackupOk(JSON.stringify(arquivoValido())));
+    await desfazerImportacao(base);
+    expect((await repo.obterConfig(base)).ultimoBackupEm).toBeUndefined();
   });
 
   it('ultimaImportacao informa quando foi guardada a cópia mais recente', async () => {

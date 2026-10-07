@@ -2,7 +2,7 @@ import { desfazerImportacao, exportar, nomeArquivoBackup, serializar, ultimaImpo
 import { registrarBackup } from '../../dados/repositorio';
 import { formatarDataHora } from '../../dominio/datas';
 import { compartilharOuBaixar } from '../arquivo';
-import { ImportarBackup } from '../componentes/ImportarBackup';
+import { ImportarBackup, materializarSemFalhar } from '../componentes/ImportarBackup';
 import { usarToast } from '../componentes/Toast';
 import { usarConsulta } from '../consulta';
 import { usarBase, usarHoje } from '../contexto';
@@ -31,7 +31,10 @@ export function Backup({ estado }: { estado: Estado }) {
     const quando = formatarDataHora(criadoEm);
     if (!window.confirm(`Restaurar os dados de antes da importação de ${quando}? Tudo o que você fez depois disso será perdido.`)) return;
     try {
-      if (await desfazerImportacao(base)) mostrar('Importação desfeita');
+      if (await desfazerImportacao(base)) {
+        await materializarSemFalhar(base, hoje);
+        mostrar('Importação desfeita');
+      }
     } catch (err) {
       console.error(err);
       mostrar('Não foi possível desfazer a importação.');

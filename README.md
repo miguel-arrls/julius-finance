@@ -6,7 +6,7 @@ instalado no iPhone (PWA). **Os dados ficam só no aparelho**: não há servidor
 
 ## Rodar no computador
 
-Requer Node 22.
+Requer Node 22.22.2 ou mais novo.
 
 ```bash
 npm install
@@ -25,10 +25,16 @@ npm run e2e       # fluxo completo no motor do Safari (Playwright WebKit)
 ## Usar no iPhone
 
 O app é publicado no GitHub Pages a cada push na `main` (veja `.github/workflows/publicar.yml`).
+O repositório no GitHub precisa se chamar **`julius-finance`**: o app é servido em `/julius-finance/`
+(o `base` do Vite) e, com outro nome, os arquivos não carregam.
 
 1. No iPhone, abra o endereço publicado no **Safari**.
 2. Toque em **Compartilhar** → **Adicionar à Tela de Início**.
 3. Abra o app pelo ícone. Use sempre o ícone: o app instalado e o Safari guardam dados separados.
+
+Todos os sites do GitHub Pages de uma mesma conta compartilham a origem `usuario.github.io`, e com ela o
+armazenamento do navegador. Não publique nessa conta sites de terceiros (ou código que você não controla):
+eles rodariam na mesma origem que os seus dados.
 
 Para testar no iPhone sem publicar, rode `npm run dev` e abra `http://IP-DO-COMPUTADOR:5173/julius-finance/`
 na mesma rede Wi-Fi. Sem HTTPS, o modo offline e a instalação não funcionam; serve só para olhar.
