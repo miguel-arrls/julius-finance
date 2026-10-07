@@ -2,6 +2,8 @@ import { EstadoVazio } from './componentes/EstadoVazio';
 import { Navegacao } from './componentes/Navegacao';
 import { usarEstado, type Estado } from './estado';
 import { usarRota, type Rota } from './rota';
+import { Despesas } from './telas/Despesas';
+import { DetalheDespesa } from './telas/DetalheDespesa';
 import { FormDespesa } from './telas/FormDespesa';
 import { Inicio } from './telas/Inicio';
 import { Lancamentos } from './telas/Lancamentos';
@@ -21,6 +23,10 @@ function Tela({ rota, estado }: { rota: Rota; estado: Estado }) {
       return <FormDespesa key={`editar-${rota.id}`} estado={estado} id={rota.id} />;
     case 'lancamentos':
       return <Lancamentos estado={estado} />;
+    case 'despesas':
+      return <Despesas estado={estado} />;
+    case 'despesa':
+      return <DetalheDespesa key={rota.id} estado={estado} id={rota.id} />;
     default:
       return <EmBreve />;
   }
