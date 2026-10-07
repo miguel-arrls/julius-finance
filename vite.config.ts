@@ -1,5 +1,6 @@
 import { defineConfig, type Plugin } from 'vite';
 import preact from '@preact/preset-vite';
+import { VitePWA } from 'vite-plugin-pwa';
 
 export const CSP = [
   "default-src 'self'",
@@ -24,5 +25,33 @@ function csp(): Plugin {
 
 export default defineConfig({
   base: '/julius-finance/',
-  plugins: [preact(), csp()],
+  plugins: [
+    preact(),
+    csp(),
+    VitePWA({
+      registerType: 'autoUpdate',
+      injectRegister: 'script',
+      includeAssets: ['favicon.svg', 'favicon.ico', 'apple-touch-icon-180x180.png'],
+      manifest: {
+        name: 'Julius — controle de gastos',
+        short_name: 'Julius',
+        description: 'Controle pessoal de gastos. Os dados ficam só no aparelho.',
+        lang: 'pt-BR',
+        start_url: '/julius-finance/',
+        scope: '/julius-finance/',
+        display: 'standalone',
+        background_color: '#f6f5f2',
+        theme_color: '#f6f5f2',
+        icons: [
+          { src: 'pwa-64x64.png', sizes: '64x64', type: 'image/png' },
+          { src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' },
+          { src: 'pwa-512x512.png', sizes: '512x512', type: 'image/png' },
+          { src: 'maskable-icon-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+        ],
+      },
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,svg,png,ico}'],
+      },
+    }),
+  ],
 });
