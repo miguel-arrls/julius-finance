@@ -59,7 +59,8 @@ export function gerarParcelas(d: DespesaParcelada): Lancamento[] {
 /** Recalcula as parcelas após uma edição sem tocar nas pagas e sem duplicar. */
 export function regerarParcelas(d: DespesaParcelada, existentes: Lancamento[]): Mudancas {
   validarParcelada(d);
-  const pagas = existentes.filter((l) => l.pagoEm);
+  const doMesmo = existentes.filter((l) => l.despesaId === d.id);
+  const pagas = doMesmo.filter((l) => l.pagoEm);
   if (pagas.length > 0) {
     const numeros = pagas.map((l) => l.numero ?? 0);
     const maior = Math.max(...numeros);
@@ -76,7 +77,7 @@ export function regerarParcelas(d: DespesaParcelada, existentes: Lancamento[]): 
   const idsNovos = new Set(novas.map((l) => l.id));
   return {
     salvar: novas.filter((l) => !idsPagos.has(l.id)),
-    remover: existentes.filter((l) => !l.pagoEm && !idsNovos.has(l.id)).map((l) => l.id),
+    remover: doMesmo.filter((l) => !l.pagoEm && !idsNovos.has(l.id)).map((l) => l.id),
   };
 }
 
@@ -94,7 +95,8 @@ export function gerarAvulsa(d: DespesaAvulsa): Lancamento {
 
 export function regerarAvulsa(d: DespesaAvulsa, existentes: Lancamento[]): Mudancas {
   const nova = gerarAvulsa(d);
-  const anterior = existentes.find((l) => l.id === nova.id);
+  const doMesmo = existentes.filter((l) => l.despesaId === d.id);
+  const anterior = doMesmo.find((l) => l.id === nova.id);
   const salvar = anterior?.pagoEm ? { ...nova, pagoEm: anterior.pagoEm, valorPago: anterior.valorPago } : nova;
-  return { salvar: [salvar], remover: existentes.filter((l) => l.id !== nova.id).map((l) => l.id) };
+  return { salvar: [salvar], remover: doMesmo.filter((l) => l.id !== nova.id).map((l) => l.id) };
 }

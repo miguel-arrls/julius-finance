@@ -129,6 +129,13 @@ describe('regerarParcelas', () => {
     expect(segunda).toEqual(primeira);
     expect(segunda).toHaveLength(3);
   });
+
+  it('ignora lançamentos de outra despesa', () => {
+    const outroDespesa = { id: 'outra#1', despesaId: 'outra', mes: '2026-10', valor: 5000, estimado: false };
+    const m = regerarParcelas(parcelada(), [outroDespesa]);
+    expect(m.remover).not.toContain('outra#1');
+    expect(m.salvar.map((l) => l.id)).not.toContain('outra#1');
+  });
 });
 
 describe('despesa avulsa', () => {
@@ -156,5 +163,12 @@ describe('despesa avulsa', () => {
 
   it('rejeita valor zero', () => {
     esperarErroDominio(() => gerarAvulsa(avulsa({ valor: 0 })), 'Informe um valor maior que zero.');
+  });
+
+  it('ignora lançamentos de outra despesa', () => {
+    const outroDespesa = { id: 'outra#1', despesaId: 'outra', mes: '2026-10', valor: 5000, estimado: false };
+    const m = regerarAvulsa(avulsa(), [outroDespesa]);
+    expect(m.remover).not.toContain('outra#1');
+    expect(m.salvar.map((l) => l.id)).not.toContain('outra#1');
   });
 });

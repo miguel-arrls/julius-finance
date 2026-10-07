@@ -96,11 +96,12 @@ export function sincronizarRecorrencia(
 ): Mudancas {
   const geradas = gerarOcorrencias(r, meio, hoje);
   const validas = new Set(geradas.map((l) => l.id));
-  const remover = existentes
+  const doMesmo = existentes.filter((l) => l.despesaId === r.id);
+  const remover = doMesmo
     .filter((l) => !l.pagoEm && (!validas.has(l.id) || (aPartirDe !== undefined && l.mes >= aPartirDe)))
     .map((l) => l.id);
   const removidos = new Set(remover);
-  const mantidos = new Set(existentes.filter((l) => !removidos.has(l.id)).map((l) => l.id));
+  const mantidos = new Set(doMesmo.filter((l) => !removidos.has(l.id)).map((l) => l.id));
   return { salvar: geradas.filter((l) => !mantidos.has(l.id)), remover };
 }
 

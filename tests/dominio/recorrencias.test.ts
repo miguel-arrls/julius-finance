@@ -62,6 +62,11 @@ describe('gerarOcorrencias', () => {
     ]);
   });
 
+  it('anual: volta a 29/02 quando o ano é bissexto novamente', () => {
+    const r = gerarOcorrencias(recorrente({ frequencia: 'anual', inicio: '2024-02-29' }), undefined, '2028-03-01');
+    expect(r.find((l) => l.id === 're1@2028')?.dataCobranca).toBe('2028-02-29');
+  });
+
   it('respeita o fim', () => {
     expect(gerarOcorrencias(recorrente({ fim: '2026-12-31' }), undefined, HOJE).map((l) => l.id)).toEqual([
       're1@2026-10',
@@ -130,6 +135,25 @@ describe('sincronizarRecorrencia', () => {
     const m = sincronizarRecorrencia(encerrar(recorrente(), '2026-11-30'), undefined, atual, HOJE);
     expect(m.remover).not.toContain('re1@2027-01');
     expect(m.remover).toContain('re1@2026-12');
+  });
+
+  it('pagas nunca mudam na edição a partir de um mês', () => {
+    let atual = aplicar([], sincronizarRecorrencia(recorrente(), undefined, [], HOJE));
+    atual = atual.map((l) => (l.id === 're1@2027-02' ? { ...l, pagoEm: '2027-02-08', valorPago: 3990 } : l));
+    const m = sincronizarRecorrencia(recorrente({ valor: 4990 }), undefined, atual, HOJE, '2027-01');
+    expect(m.remover).not.toContain('re1@2027-02');
+    expect(m.salvar.map((l) => l.id)).not.toContain('re1@2027-02');
+    const final = aplicar(atual, m);
+    const paga = final.find((l) => l.id === 're1@2027-02')!;
+    expect(paga.valor).toBe(3990);
+    expect(paga.pagoEm).toBe('2027-02-08');
+  });
+
+  it('ignora lançamentos de outra despesa', () => {
+    const outroDespesa = { id: 'outra#1', despesaId: 'outra', mes: '2026-10', valor: 5000, estimado: false };
+    const m = sincronizarRecorrencia(recorrente(), undefined, [outroDespesa], HOJE);
+    expect(m.remover).not.toContain('outra#1');
+    expect(m.salvar.map((l) => l.id)).not.toContain('outra#1');
   });
 });
 
