@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { JuliusDB } from '../../src/dados/db';
 import * as repo from '../../src/dados/repositorio';
 import { FormDespesa } from '../../src/ui/telas/FormDespesa';
-import { CARTAO, recorrente } from '../fabricas';
+import { CARTAO, avulsa, recorrente } from '../fabricas';
 import { ComEstado, HOJE, SEM_NORMALIZAR, novaBase, renderizar } from './auxiliar';
 
 let base: JuliusDB;
@@ -97,5 +97,62 @@ describe('FormDespesa', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Salvar despesa' }));
     await waitFor(async () => expect(await base.marcas.count()).toBe(1));
     expect((await base.marcas.toArray())[0]).toMatchObject({ nome: 'Netflix', logoSlug: 'netflix' });
+  });
+});
+
+describe('FormDespesa: sugestão de vencimento', () => {
+  beforeEach(async () => {
+    await repo.salvarMeio(base, CARTAO, HOJE);
+  });
+
+  it('não sobrescreve o vencimento digitado (avulsa)', async () => {
+    await abrir();
+    digitar('Vencimento', '2026-12-01');
+    escolher('Meio de pagamento', CARTAO.id);
+    digitar('Data da compra (opcional)', '2026-10-02');
+    expect(screen.getByLabelText('Vencimento')).toHaveValue('2026-12-01');
+  });
+
+  it('não sobrescreve o 1º vencimento digitado (parcelada)', async () => {
+    await abrir();
+    fireEvent.click(screen.getByRole('radio', { name: 'Parcelada' }));
+    digitar('1º vencimento', '2026-12-01');
+    escolher('Meio de pagamento', CARTAO.id);
+    digitar('Data da compra (opcional)', '2026-10-02');
+    expect(screen.getByLabelText('1º vencimento')).toHaveValue('2026-12-01');
+  });
+
+  it('atualiza a sugestão quando a data da compra muda, mas respeita o que foi digitado depois', async () => {
+    await abrir();
+    escolher('Meio de pagamento', CARTAO.id);
+    digitar('Data da compra (opcional)', '2026-10-01');
+    expect(screen.getByLabelText('Vencimento')).toHaveValue('2026-10-07');
+    digitar('Data da compra (opcional)', '2026-10-02');
+    expect(screen.getByLabelText('Vencimento')).toHaveValue('2026-11-07');
+    digitar('Vencimento', '2026-12-15');
+    digitar('Data da compra (opcional)', '2026-10-01');
+    expect(screen.getByLabelText('Vencimento')).toHaveValue('2026-12-15');
+  });
+});
+
+describe('FormDespesa: edição', () => {
+  it('mudar só a descrição não pergunta o mês e não mexe nos lançamentos', async () => {
+    await repo.salvarDespesa(base, recorrente({ id: 'r', descricao: 'Streaming', categoriaId: 'cat-assinaturas' }), { hoje: HOJE });
+    const antes = (await base.lancamentos.toArray()).sort((a, b) => a.id.localeCompare(b.id));
+    await abrir('r');
+    digitar('Descrição', 'Streaming novo');
+    expect(screen.queryByLabelText('Aplicar a mudança a partir de')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar despesa' }));
+    await waitFor(async () => expect((await base.despesas.get('r'))!.descricao).toBe('Streaming novo'));
+    const depois = (await base.lancamentos.toArray()).sort((a, b) => a.id.localeCompare(b.id));
+    expect(depois.map((l) => [l.id, l.valor])).toEqual(antes.map((l) => [l.id, l.valor]));
+  });
+
+  it('preencher a loja tira "loja" de a confirmar ao salvar', async () => {
+    await repo.salvarDespesa(base, avulsa({ id: 'a', categoriaId: 'cat-outros', vencimento: undefined, aConfirmar: ['loja', 'vencimento'] }), { hoje: HOJE });
+    await abrir('a');
+    digitar('Loja ou marca (opcional)', 'Padaria do Zé');
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar despesa' }));
+    await waitFor(async () => expect((await base.despesas.get('a'))!.aConfirmar).toEqual(['vencimento']));
   });
 });

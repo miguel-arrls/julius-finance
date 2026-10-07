@@ -7,10 +7,11 @@ import {
   resolverMarca,
   sugerirVencimento,
   validar,
+  valoresDeDespesa,
   valoresIniciais,
   type ValoresForm,
 } from '../../src/ui/telas/regrasDespesa';
-import { CARTAO, PIX, recorrente } from '../fabricas';
+import { CARTAO, PIX, avulsa, parcelada, recorrente } from '../fabricas';
 
 const v = (o: Partial<ValoresForm>): ValoresForm => ({ ...valoresIniciais('2026-10'), categoriaId: 'cat-outros', ...o });
 
@@ -102,4 +103,23 @@ describe('auxiliares', () => {
     expect(p.lancamentos.map((l) => l.dataCobranca)).toEqual(['2026-10-08', '2026-11-08', '2026-12-08']);
     expect(p.anteriores).toBe(2);
   });
+});
+
+describe('round-trip valoresDeDespesa -> montarDespesa', () => {
+  const marcas = [{ id: 'm1', nome: 'Loja', apelidos: [] }];
+  const desc = 'Açaí & Cia — ção ⟦⟧';
+  const semCarimbo = ({ criadaEm: _c, atualizadaEm: _a, ...resto }: Record<string, unknown>) => resto;
+  const casos = {
+    avulsa: avulsa({ descricao: desc, valor: 120000, marcaId: 'm1', observacoes: 'obs ç' }),
+    'parcelada com valorParcela': parcelada({ descricao: desc, valorTotal: 120000, valorParcela: 40500, marcaId: 'm1' }),
+    'parcelada sem valorParcela': parcelada({ descricao: desc, valorTotal: 120000, comecaNaParcela: 2 }),
+    recorrente: recorrente({ descricao: desc, valor: 120000, fim: '2027-10-08', valorVariavel: true, pausas: [{ de: '2026-12-01' }] }),
+  };
+  for (const [nome, d] of Object.entries(casos)) {
+    it(nome, () => {
+      const pausas = d.tipo === 'recorrente' ? d.pausas : undefined;
+      const volta = montarDespesa(valoresDeDespesa(d, marcas, '2026-10'), { id: d.id, marcaId: d.marcaId, pausas });
+      expect(semCarimbo({ ...volta })).toEqual(semCarimbo({ ...d }));
+    });
+  }
 });

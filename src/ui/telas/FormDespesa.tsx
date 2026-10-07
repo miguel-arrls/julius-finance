@@ -12,6 +12,7 @@ import type { Estado } from '../estado';
 import { navegar } from '../rota';
 import { ROTULO_A_CONFIRMAR } from '../textos';
 import {
+  atualizarAConfirmar,
   montarDespesa,
   mudouCobranca,
   previa,
@@ -186,6 +187,8 @@ export function FormDespesa({ estado, id }: { estado: Estado; id?: string }) {
   const [aPartirDe, setAPartirDe] = useState(mesDe(hoje));
   const [salvando, setSalvando] = useState(false);
   const travado = useRef(false);
+  const ultimaSugestao = useRef<string | undefined>(undefined);
+  const [idMarcaNova] = useState(() => crypto.randomUUID());
 
   if (id && !existente) {
     return <EstadoVazio titulo="Despesa não encontrada" texto="Ela pode ter sido excluída." acao={{ rotulo: 'Ver despesas', href: '#/despesas' }} />;
@@ -195,20 +198,24 @@ export function FormDespesa({ estado, id }: { estado: Estado; id?: string }) {
   const meio = estado.meios.find((m) => m.id === v.meioPagamentoId);
 
   const alterar: Alterar = (campo, valor) => {
-    setV((atual) => {
-      const novo = { ...atual, [campo]: valor };
-      if (campo === 'dataCompra' || campo === 'meioPagamentoId') {
-        const sugestao = sugerirVencimento(novo.dataCompra, estado.meios.find((m) => m.id === novo.meioPagamentoId));
-        if (sugestao && novo.tipo === 'avulsa' && !atual.vencimento) novo.vencimento = sugestao;
-        if (sugestao && novo.tipo === 'parcelada' && !atual.primeiroVencimento) novo.primeiroVencimento = sugestao;
+    const novo = { ...v, [campo]: valor };
+    if (campo === 'dataCompra' || campo === 'meioPagamentoId') {
+      const sugestao = sugerirVencimento(novo.dataCompra, estado.meios.find((m) => m.id === novo.meioPagamentoId));
+      if (sugestao) {
+        // Só sobrescreve o campo vazio ou ainda igual à última sugestão; o que o usuário digitou fica.
+        const livre = (atual: string) => !atual || atual === ultimaSugestao.current;
+        if (novo.tipo === 'avulsa' && livre(v.vencimento)) novo.vencimento = sugestao;
+        if (novo.tipo === 'parcelada' && livre(v.primeiroVencimento)) novo.primeiroVencimento = sugestao;
+        ultimaSugestao.current = sugestao;
       }
-      return novo;
-    });
+    }
+    setV(novo);
     setErros((e) => (e[campo] ? { ...e, [campo]: undefined } : e));
   };
 
   const montada = Object.keys(validar(v)).length === 0 ? montarDespesa(v, { id: idDespesa, pausas }) : null;
   const prev = montada ? previa(montada, meio, hoje) : null;
+  const pendentes = atualizarAConfirmar(v);
   const perguntarAPartir = existente !== undefined && montada !== null && mudouCobranca(existente, montada);
   const mesesAPartir = Array.from({ length: 13 }, (_, k) => somarMesesAoMes(mesDe(hoje), k));
 
@@ -222,7 +229,7 @@ export function FormDespesa({ estado, id }: { estado: Estado; id?: string }) {
     setSalvando(true);
     setErroGeral('');
     try {
-      const marca = resolverMarca(v.marca, v.descricao, estado.marcas);
+      const marca = resolverMarca(v.marca, v.descricao, estado.marcas, () => idMarcaNova);
       if (marca.nova) await salvarMarca(base, marca.nova);
       const despesa = montarDespesa(v, { id: idDespesa, marcaId: marca.marcaId ?? marca.nova?.id, pausas });
       const aplicarDesde = existente && mudouCobranca(existente, despesa) ? aPartirDe : undefined;
@@ -230,6 +237,7 @@ export function FormDespesa({ estado, id }: { estado: Estado; id?: string }) {
       mostrar(existente ? 'Despesa atualizada' : 'Despesa cadastrada');
       navegar({ tela: 'despesa', id: idDespesa });
     } catch (err) {
+      console.error(err);
       setErroGeral(err instanceof ErroDominio ? err.message : 'Não foi possível salvar. Tente de novo.');
       travado.current = false;
       setSalvando(false);
@@ -294,13 +302,13 @@ export function FormDespesa({ estado, id }: { estado: Estado; id?: string }) {
         <textarea id="f-obs" value={v.observacoes} onInput={(e) => alterar('observacoes', e.currentTarget.value)} />
       </Campo>
 
-      {v.aConfirmar.length > 0 && (
+      {pendentes.length > 0 && (
         <fieldset class="cartao">
           <legend>A confirmar</legend>
           <p class="texto-suave">Marque o que você já conferiu.</p>
-          {v.aConfirmar.map((c) => (
+          {pendentes.map((c) => (
             <label class="check" key={c}>
-              <input type="checkbox" onChange={() => alterar('aConfirmar', v.aConfirmar.filter((x) => x !== c))} />
+              <input type="checkbox" onChange={() => alterar('aConfirmar', pendentes.filter((x) => x !== c))} />
               {ROTULO_A_CONFIRMAR[c]}
             </label>
           ))}
