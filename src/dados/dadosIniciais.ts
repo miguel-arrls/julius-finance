@@ -16,6 +16,10 @@ export interface DefinicaoInicial {
 
 /** Monta um arquivo de backup a partir de uma definição escrita à mão. */
 export function montarBackupInicial(def: DefinicaoInicial, hoje: DataISO, agora: string): ArquivoBackup {
+  const objeto = typeof def === 'object' && def !== null && !Array.isArray(def);
+  if (!objeto || ![def.meios, def.marcas, def.despesas, def.pagamentos].every(Array.isArray)) {
+    throw new Error('Definição inválida: esperado um objeto com as listas meios, marcas, despesas e pagamentos.');
+  }
   const categorias = new Set(CATEGORIAS_PADRAO.map((c) => c.id));
   const meios = new Map(def.meios.map((m) => [m.id, m]));
   const despesas = def.despesas.map((d) => ({ ...d, criadaEm: agora, atualizadaEm: agora }) as Despesa);

@@ -1,6 +1,6 @@
 import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { main } from '../../scripts/cli-dados-iniciais';
 import { lerBackup } from '../../src/dados/backup';
@@ -97,6 +97,56 @@ describe('CLI de dados iniciais', () => {
     def.despesas[1]!.categoriaId = 'cat-nao-existe';
     const { entrada, saida } = preparar(JSON.stringify(def));
     expect(main([entrada, saida], AGORA)).toBe(1);
+    expect(existsSync(saida)).toBe(false);
     expect(erro).toHaveBeenCalledWith('Categoria desconhecida em "Celular": cat-nao-existe');
+  });
+
+  it('meio de pagamento desconhecido: código 1 com motivo', () => {
+    const erro = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const def = definicao();
+    def.despesas[1]!.meioPagamentoId = 'mp-nao-existe';
+    const { entrada, saida } = preparar(JSON.stringify(def));
+    expect(main([entrada, saida], AGORA)).toBe(1);
+    expect(existsSync(saida)).toBe(false);
+    expect(erro).toHaveBeenCalledWith('Meio de pagamento desconhecido em "Celular": mp-nao-existe');
+  });
+
+  it('validador do app reprova (ID repetido): código 1, mensagem do validador e nada gravado', () => {
+    const erro = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const def = definicao();
+    def.despesas.push({ ...def.despesas[0]! });
+    const { entrada, saida } = preparar(JSON.stringify(def));
+    expect(main([entrada, saida], AGORA)).toBe(1);
+    expect(existsSync(saida)).toBe(false);
+    expect(erro).toHaveBeenCalledWith('Arquivo inválido: ID repetido em despesas ("rec-streaming").');
+  });
+
+  it('falha ao gravar: código 1 e erro informado', () => {
+    const erro = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const { entrada, saida } = preparar(JSON.stringify(definicao()));
+    const impossivel = join(dirname(saida), 'pasta-que-nao-existe', 'saida.json');
+    expect(main([entrada, impossivel], AGORA)).toBe(1);
+    expect(erro).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ['null', 'null'],
+    ['lista', '[]'],
+    ['sem pagamentos', JSON.stringify({ meios: [], marcas: [], despesas: [] })],
+  ])('definição com formato errado (%s): código 1 e nada gravado', (_nome, conteudo) => {
+    const erro = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const { entrada, saida } = preparar(conteudo);
+    expect(main([entrada, saida], AGORA)).toBe(1);
+    expect(existsSync(saida)).toBe(false);
+    expect(erro).toHaveBeenCalledWith('Definição inválida: esperado um objeto com as listas meios, marcas, despesas e pagamentos.');
+  });
+
+  it('entrada que é uma pasta: não consegue ler, não é JSON inválido', () => {
+    const erro = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const { entrada, saida } = preparar(null);
+    const pasta = dirname(entrada);
+    expect(main([pasta, saida], AGORA)).toBe(1);
+    expect(existsSync(saida)).toBe(false);
+    expect(erro).toHaveBeenCalledWith(`Não foi possível ler: ${pasta}`);
   });
 });

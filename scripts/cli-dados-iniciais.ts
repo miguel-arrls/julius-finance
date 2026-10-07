@@ -14,22 +14,29 @@ export function main(argv: string[], agora: Date = new Date()): number {
     console.error(`Arquivo não encontrado: ${entrada}`);
     return 1;
   }
+  let texto: string;
+  try {
+    texto = readFileSync(entrada, { encoding: 'utf-8' });
+  } catch {
+    console.error(`Não foi possível ler: ${entrada}`);
+    return 1;
+  }
   let def: DefinicaoInicial;
   try {
-    def = JSON.parse(readFileSync(entrada, { encoding: 'utf-8' })) as DefinicaoInicial;
+    def = JSON.parse(texto) as DefinicaoInicial;
   } catch {
     console.error(`JSON inválido: ${entrada}`);
     return 1;
   }
   try {
     const arquivo = montarBackupInicial(def, hojeISO(agora), agora.toISOString());
-    const texto = `${JSON.stringify(arquivo, null, 2)}\n`;
-    const conferido = lerBackup(texto);
+    const saidaTexto = `${JSON.stringify(arquivo, null, 2)}\n`;
+    const conferido = lerBackup(saidaTexto);
     if (!conferido.ok) {
       console.error(conferido.erro);
       return 1;
     }
-    writeFileSync(saida, texto, { encoding: 'utf-8' });
+    writeFileSync(saida, saidaTexto, { encoding: 'utf-8' });
     console.log(`Gerado ${saida}: ${arquivo.dados.despesas.length} despesas, ${arquivo.dados.lancamentos.length} lançamentos.`);
     return 0;
   } catch (e) {
