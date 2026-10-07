@@ -19,6 +19,13 @@ for (const f of ['dist/sw.js', 'dist/registerSW.js', 'dist/manifest.webmanifest'
   if (!existsSync(f)) erros.push(`${f} não existe`);
 }
 
+if (existsSync('dist/sw.js')) {
+  const sw = ler('dist/sw.js');
+  if (!sw.includes('skipWaiting') || !sw.includes('clientsClaim')) {
+    erros.push('service worker sem atualização automática (skipWaiting/clientsClaim)');
+  }
+}
+
 if (existsSync('dist/manifest.webmanifest')) {
   const m = JSON.parse(ler('dist/manifest.webmanifest'));
   if (m.start_url !== '/julius-finance/') erros.push(`manifest.start_url inesperado: ${m.start_url}`);
