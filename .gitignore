@@ -6,3 +6,5 @@ playwright-report/
 # Dados pessoais: nunca commitar
 dados-locais/
 *.local
+# Trava do agendador do Claude
+.claude/*.lock
