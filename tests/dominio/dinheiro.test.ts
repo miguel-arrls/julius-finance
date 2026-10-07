@@ -11,6 +11,11 @@ describe('formatarReais', () => {
   ])('%i → %s', (centavos, esperado) => {
     expect(formatarReais(centavos)).toBe(esperado);
   });
+
+  it('usa espaço não separável (U+00A0) depois de R$', () => {
+    expect(formatarReais(100).charCodeAt(2)).toBe(0xa0);
+    expect(formatarReais(-100).charCodeAt(3)).toBe(0xa0);
+  });
 });
 
 describe('formatarNumero', () => {
