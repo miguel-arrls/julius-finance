@@ -129,6 +129,38 @@ describe('lerBackup rejeita arquivos ruins com mensagem clara', () => {
       (a) => ({ ...a, dados: { ...a.dados, lancamentos: [{ ...a.dados.lancamentos[0], despesaId: 'nada' }] } }),
       'Arquivo inválido: o lançamento "d#1" aponta para uma despesa que não existe.',
     ],
+    ['versão zero', (a) => ({ ...a, versao: 0 }), 'Versão do backup ausente.'],
+    [
+      'parcelada sem numParcelas',
+      (a) => {
+        const { numParcelas: _n, ...resto } = parcelada({ id: 'd', categoriaId: 'c' });
+        return { ...a, dados: { ...a.dados, despesas: [resto] } };
+      },
+      'Arquivo inválido: despesas[0].numParcelas ausente ou com tipo errado.',
+    ],
+    [
+      'recorrente com frequência desconhecida',
+      (a) => ({
+        ...a,
+        dados: { ...a.dados, despesas: [{ ...recorrente({ id: 'd', categoriaId: 'c' }), frequencia: 'diaria' }] },
+      }),
+      'Arquivo inválido: despesas[0].frequencia ausente ou com tipo errado.',
+    ],
+    [
+      'lançamento com vencimento inexistente',
+      (a) => ({ ...a, dados: { ...a.dados, lancamentos: [{ ...a.dados.lancamentos[0], vencimento: '2026-13-01' }] } }),
+      'Arquivo inválido: lancamentos[0].vencimento ausente ou com tipo errado.',
+    ],
+    [
+      'meio com tipo desconhecido',
+      (a) => ({ ...a, dados: { ...a.dados, meiosPagamento: [{ id: 'x', nome: 'Talão', tipo: 'cheque' }] } }),
+      'Arquivo inválido: meiosPagamento[0].tipo ausente ou com tipo errado.',
+    ],
+    [
+      'despesa com data de compra inválida',
+      (a) => ({ ...a, dados: { ...a.dados, despesas: [{ ...a.dados.despesas[0], dataCompra: 'ontem' }] } }),
+      'Arquivo inválido: despesas[0].dataCompra ausente ou com tipo errado.',
+    ],
     [
       'ID repetido',
       (a) => ({ ...a, dados: { ...a.dados, lancamentos: [a.dados.lancamentos[0], a.dados.lancamentos[0]] } }),

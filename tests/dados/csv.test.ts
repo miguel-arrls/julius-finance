@@ -33,4 +33,8 @@ describe('gerarCsv', () => {
         'Streaming;;Assinaturas;Recorrente;;10/2026;08/10/2026;40,00;Paga;08/10/2026;Cartão Teste;\r\n',
     );
   });
+
+  it('começa com o BOM U+FEFF', () => {
+    expect(gerarCsv([]).charCodeAt(0)).toBe(0xfeff);
+  });
 });

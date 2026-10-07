@@ -1,3 +1,4 @@
+import { ehDataISO, ehMesISO } from '../dominio/datas';
 import type { Configuracao, DataISO } from '../dominio/tipos';
 import { VERSAO_ESQUEMA, type ArquivoBackup, type DadosBackup, type JuliusDB } from './db';
 
@@ -5,7 +6,7 @@ export const APP_ID = 'julius-finance';
 export const VERSAO_BACKUP = 1;
 const MAX_SNAPSHOTS = 3;
 
-type TipoCampo = 'string' | 'number' | 'inteiro' | 'boolean' | 'array';
+type TipoCampo = 'string' | 'number' | 'inteiro' | 'boolean' | 'array' | 'data' | 'mes';
 type Tabela = Exclude<keyof DadosBackup, 'configuracao'>;
 
 /** Campos obrigatórios de cada lista. Campos opcionais não são exigidos. */
@@ -14,10 +15,25 @@ const ESQUEMAS: Record<Tabela, Record<string, TipoCampo>> = {
   marcas: { id: 'string', nome: 'string', apelidos: 'array' },
   meiosPagamento: { id: 'string', nome: 'string', tipo: 'string' },
   despesas: { id: 'string', tipo: 'string', descricao: 'string', categoriaId: 'string', observacoes: 'string', aConfirmar: 'array' },
-  lancamentos: { id: 'string', despesaId: 'string', mes: 'string', valor: 'inteiro', estimado: 'boolean' },
+  lancamentos: { id: 'string', despesaId: 'string', mes: 'mes', valor: 'inteiro', estimado: 'boolean' },
   historico: { id: 'string', despesaId: 'string', quando: 'string', acao: 'string', mudancas: 'array' },
 };
 const TIPOS_DESPESA = new Set(['avulsa', 'parcelada', 'recorrente']);
+const TIPOS_MEIO = new Set(['credito', 'debito', 'pix', 'boleto', 'dinheiro', 'outro']);
+const FREQUENCIAS = new Set(['mensal', 'semanal', 'anual']);
+
+/** Campos obrigatórios que dependem do tipo da despesa. */
+const POR_TIPO_DESPESA: Record<string, Record<string, TipoCampo>> = {
+  avulsa: { valor: 'inteiro', mes: 'mes' },
+  parcelada: { valorTotal: 'inteiro', numParcelas: 'inteiro', comecaNaParcela: 'inteiro', mesPrimeira: 'mes' },
+  recorrente: { valor: 'inteiro', valorVariavel: 'boolean', inicio: 'data', pausas: 'array' },
+};
+
+/** Campos opcionais: quando presentes, precisam ter o tipo certo. */
+const OPCIONAIS: Partial<Record<Tabela, Record<string, TipoCampo>>> = {
+  lancamentos: { numero: 'inteiro', valorPago: 'inteiro', vencimento: 'data', pagoEm: 'data', dataCobranca: 'data' },
+  despesas: { vencimento: 'data', primeiroVencimento: 'data', dataCompra: 'data', fim: 'data', valorParcela: 'inteiro' },
+};
 
 export type ResultadoLeitura = { ok: true; arquivo: ArquivoBackup } | { ok: false; erro: string };
 
@@ -27,6 +43,8 @@ const ehObjeto = (v: unknown): v is Record<string, unknown> => typeof v === 'obj
 function confere(valor: unknown, tipo: TipoCampo): boolean {
   if (tipo === 'array') return Array.isArray(valor);
   if (tipo === 'inteiro') return Number.isInteger(valor);
+  if (tipo === 'data') return ehDataISO(valor);
+  if (tipo === 'mes') return ehMesISO(valor);
   return typeof valor === tipo;
 }
 
@@ -73,8 +91,8 @@ export function lerBackup(texto: string): ResultadoLeitura {
     return falha('O arquivo não é um JSON válido.');
   }
   if (!ehObjeto(json) || json.app !== APP_ID) return falha('Este arquivo não é um backup do Julius.');
-  if (typeof json.versao !== 'number') return falha('Versão do backup ausente.');
-  if (json.versao > VERSAO_BACKUP) {
+  if (!Number.isInteger(json.versao) || (json.versao as number) < 1) return falha('Versão do backup ausente.');
+  if ((json.versao as number) > VERSAO_BACKUP) {
     return falha('Este backup foi feito por uma versão mais nova do app. Atualize o app e tente de novo.');
   }
   const dados = json.dados;
@@ -91,6 +109,11 @@ export function lerBackup(texto: string): ResultadoLeitura {
           return falha(`Arquivo inválido: ${tabela}[${i}].${campo} ausente ou com tipo errado.`);
         }
       }
+      for (const [campo, tipo] of Object.entries(OPCIONAIS[tabela as Tabela] ?? {})) {
+        if (registro[campo] !== undefined && !confere(registro[campo], tipo)) {
+          return falha(`Arquivo inválido: ${tabela}[${i}].${campo} ausente ou com tipo errado.`);
+        }
+      }
       const id = registro.id as string;
       if (ids.has(id)) return falha(`Arquivo inválido: ID repetido em ${tabela} ("${id}").`);
       ids.add(id);
@@ -100,6 +123,15 @@ export function lerBackup(texto: string): ResultadoLeitura {
   const despesas = dados.despesas as Record<string, unknown>[];
   for (const [i, d] of despesas.entries()) {
     if (!TIPOS_DESPESA.has(d.tipo as string)) return falha(`Arquivo inválido: despesas[${i}].tipo ausente ou com tipo errado.`);
+    for (const [campo, tipo] of Object.entries(POR_TIPO_DESPESA[d.tipo as string]!)) {
+      if (!confere(d[campo], tipo)) return falha(`Arquivo inválido: despesas[${i}].${campo} ausente ou com tipo errado.`);
+    }
+    if (d.tipo === 'recorrente' && !FREQUENCIAS.has(d.frequencia as string)) {
+      return falha(`Arquivo inválido: despesas[${i}].frequencia ausente ou com tipo errado.`);
+    }
+  }
+  for (const [i, m] of (dados.meiosPagamento as Record<string, unknown>[]).entries()) {
+    if (!TIPOS_MEIO.has(m.tipo as string)) return falha(`Arquivo inválido: meiosPagamento[${i}].tipo ausente ou com tipo errado.`);
   }
   const idsDespesas = new Set(despesas.map((d) => d.id as string));
   for (const l of dados.lancamentos as Record<string, unknown>[]) {
@@ -110,14 +142,17 @@ export function lerBackup(texto: string): ResultadoLeitura {
 
   const configuracao: Configuracao =
     ehObjeto(dados.configuracao) && typeof dados.configuracao.versaoEsquema === 'number'
-      ? (dados.configuracao as unknown as Configuracao)
+      ? {
+          versaoEsquema: dados.configuracao.versaoEsquema,
+          ...(typeof dados.configuracao.ultimoBackupEm === 'string' ? { ultimoBackupEm: dados.configuracao.ultimoBackupEm } : {}),
+        }
       : { versaoEsquema: VERSAO_ESQUEMA };
 
   return {
     ok: true,
     arquivo: migrar({
       app: APP_ID,
-      versao: json.versao,
+      versao: json.versao as number,
       exportadoEm: typeof json.exportadoEm === 'string' ? json.exportadoEm : '',
       dados: { ...(dados as unknown as DadosBackup), configuracao },
     }),
@@ -149,13 +184,13 @@ async function substituirTudo(base: JuliusDB, d: DadosBackup): Promise<void> {
   await base.despesas.bulkAdd(d.despesas);
   await base.lancamentos.bulkAdd(d.lancamentos);
   await base.historico.bulkAdd(d.historico);
-  await base.config.put({ id: 'config', ...d.configuracao });
+  await base.config.put({ ...d.configuracao, id: 'config' });
 }
 
 /** Guarda uma cópia dos dados atuais e substitui tudo pelo arquivo. Tudo ou nada. */
 export async function importar(base: JuliusDB, arquivo: ArquivoBackup): Promise<void> {
-  const atual = await exportar(base);
   await base.transaction('rw', base.tables, async () => {
+    const atual = await exportar(base);
     const ultimo = await base.snapshots.orderBy('seq').last();
     await base.snapshots.add({
       id: crypto.randomUUID(),
