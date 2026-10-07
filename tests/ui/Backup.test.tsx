@@ -1,6 +1,6 @@
 import { fireEvent, screen, waitFor } from '@testing-library/preact';
-import { beforeEach, describe, expect, it } from 'vitest';
-import { exportar, serializar } from '../../src/dados/backup';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { exportar, importar, lerBackup, serializar } from '../../src/dados/backup';
 import type { JuliusDB } from '../../src/dados/db';
 import * as repo from '../../src/dados/repositorio';
 import { Backup } from '../../src/ui/telas/Backup';
@@ -15,6 +15,8 @@ beforeEach(async () => {
   await repo.salvarDespesa(base, avulsa({ id: 'a1', descricao: 'Primeira' }), { hoje: HOJE });
   await repo.salvarDespesa(base, avulsa({ id: 'a2', descricao: 'Segunda' }), { hoje: HOJE });
 });
+
+afterEach(() => vi.restoreAllMocks());
 
 const abrir = () => renderizar(<ComEstado filho={(e) => <Backup estado={e} />} />, base);
 const enviar = async (conteudo: string) =>
@@ -44,5 +46,60 @@ describe('Backup', () => {
     await waitFor(async () => expect(await base.despesas.count()).toBe(1));
     fireEvent.click(await screen.findByRole('button', { name: 'Desfazer' }));
     await waitFor(async () => expect(await base.despesas.count()).toBe(2));
+  });
+
+  describe('desfazer a última importação pela tela', () => {
+    const TEXTO_CONFIRMACAO =
+      'Restaurar os dados de antes da importação de 05/10/2026 12:30? Tudo o que você fez depois disso será perdido.';
+
+    beforeEach(async () => {
+      const outra = await novaBase();
+      await repo.inicializarPadrao(outra);
+      await repo.salvarDespesa(outra, avulsa({ id: 'x', descricao: 'Do outro aparelho' }), { hoje: HOJE });
+      const lido = lerBackup(serializar(await exportar(outra, '2026-10-05T12:00:00.000Z')));
+      if (!lido.ok) throw new Error(lido.erro);
+      await importar(base, lido.arquivo);
+      const [snap] = await base.snapshots.toArray();
+      await base.snapshots.update(snap!.id, { criadoEm: '2026-10-05T15:30:00.000Z' }); // 12:30 em São Paulo
+    });
+
+    it('o botão mostra a data da importação', async () => {
+      abrir();
+      expect(await screen.findByRole('button', { name: 'Desfazer importação de 05/10/2026 12:30' })).toBeInTheDocument();
+    });
+
+    it('sem confirmar, nada muda', async () => {
+      const confirmar = vi.spyOn(window, 'confirm').mockReturnValue(false);
+      abrir();
+      fireEvent.click(await screen.findByRole('button', { name: 'Desfazer importação de 05/10/2026 12:30' }));
+      expect(confirmar).toHaveBeenCalledTimes(1);
+      expect(confirmar).toHaveBeenCalledWith(TEXTO_CONFIRMACAO);
+      await new Promise((r) => setTimeout(r, 50));
+      expect((await base.despesas.toArray()).map((d) => d.id)).toEqual(['x']);
+      expect(await base.snapshots.count()).toBe(1);
+    });
+
+    it('confirmando, restaura os dados de antes da importação', async () => {
+      const confirmar = vi.spyOn(window, 'confirm').mockReturnValue(true);
+      abrir();
+      fireEvent.click(await screen.findByRole('button', { name: 'Desfazer importação de 05/10/2026 12:30' }));
+      expect(confirmar).toHaveBeenCalledWith(TEXTO_CONFIRMACAO);
+      await waitFor(async () => expect((await base.despesas.toArray()).map((d) => d.id).sort()).toEqual(['a1', 'a2']));
+      expect(await base.snapshots.count()).toBe(0);
+    });
+
+    it('o Desfazer do aviso logo após importar não pede confirmação', async () => {
+      const confirmar = vi.spyOn(window, 'confirm').mockReturnValue(false);
+      const outra = await novaBase();
+      await repo.inicializarPadrao(outra);
+      await repo.salvarDespesa(outra, avulsa({ id: 'y', descricao: 'Terceiro' }), { hoje: HOJE });
+      abrir();
+      await enviar(serializar(await exportar(outra, '2026-10-05T12:00:00.000Z')));
+      fireEvent.click(await screen.findByRole('button', { name: 'Substituir meus dados' }));
+      await waitFor(async () => expect((await base.despesas.toArray()).map((d) => d.id)).toEqual(['y']));
+      fireEvent.click(await screen.findByRole('button', { name: 'Desfazer' }));
+      await waitFor(async () => expect((await base.despesas.toArray()).map((d) => d.id)).toEqual(['x']));
+      expect(confirmar).not.toHaveBeenCalled();
+    });
   });
 });

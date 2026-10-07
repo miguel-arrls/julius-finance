@@ -8,6 +8,7 @@ import {
   resumirBackup,
   serializar,
   temImportacaoParaDesfazer,
+  ultimaImportacao,
 } from '../../src/dados/backup';
 import { JuliusDB, type ArquivoBackup } from '../../src/dados/db';
 import * as repo from '../../src/dados/repositorio';
@@ -83,6 +84,18 @@ describe('exportar e importar', () => {
     expect(await desfazerImportacao(base)).toBe(true);
     expect((await exportar(base, 'x')).dados).toEqual(antes.dados);
     expect(await desfazerImportacao(base)).toBe(false);
+  });
+
+  it('ultimaImportacao informa quando foi guardada a cópia mais recente', async () => {
+    expect(await ultimaImportacao(base)).toBeNull();
+    await importar(base, lerBackupOk(JSON.stringify(arquivoValido())));
+    await importar(base, lerBackupOk(JSON.stringify(arquivoValido())));
+    const [primeira, segunda] = await base.snapshots.orderBy('seq').toArray();
+    await base.snapshots.update(primeira!.id, { criadoEm: '2026-10-01T10:00:00.000Z' });
+    await base.snapshots.update(segunda!.id, { criadoEm: '2026-10-02T10:00:00.000Z' });
+    expect(await ultimaImportacao(base)).toEqual({ criadoEm: '2026-10-02T10:00:00.000Z' });
+    await desfazerImportacao(base);
+    expect(await ultimaImportacao(base)).toEqual({ criadoEm: '2026-10-01T10:00:00.000Z' });
   });
 
   it('guarda no máximo 3 cópias para desfazer', async () => {

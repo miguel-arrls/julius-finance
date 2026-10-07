@@ -1,4 +1,4 @@
-import { desfazerImportacao, exportar, nomeArquivoBackup, serializar, temImportacaoParaDesfazer } from '../../dados/backup';
+import { desfazerImportacao, exportar, nomeArquivoBackup, serializar, ultimaImportacao } from '../../dados/backup';
 import { registrarBackup } from '../../dados/repositorio';
 import { formatarDataHora } from '../../dominio/datas';
 import { compartilharOuBaixar } from '../arquivo';
@@ -12,7 +12,7 @@ export function Backup({ estado }: { estado: Estado }) {
   const base = usarBase();
   const hoje = usarHoje();
   const mostrar = usarToast();
-  const podeDesfazer = usarConsulta(() => temImportacaoParaDesfazer(base), [base]);
+  const ultima = usarConsulta(() => ultimaImportacao(base), [base]);
 
   async function exportarJson() {
     try {
@@ -27,7 +27,9 @@ export function Backup({ estado }: { estado: Estado }) {
     }
   }
 
-  async function desfazer() {
+  async function desfazer(criadoEm: string) {
+    const quando = formatarDataHora(criadoEm);
+    if (!window.confirm(`Restaurar os dados de antes da importação de ${quando}? Tudo o que você fez depois disso será perdido.`)) return;
     try {
       if (await desfazerImportacao(base)) mostrar('Importação desfeita');
     } catch (err) {
@@ -56,9 +58,9 @@ export function Backup({ estado }: { estado: Estado }) {
         <h2>Importar backup</h2>
         <p class="texto-suave">Substitui os dados deste aparelho pelos do arquivo. Use para levar os dados do iPhone para o computador, ou o contrário.</p>
         <ImportarBackup estado={estado} />
-        {podeDesfazer && (
-          <button type="button" class="botao" onClick={() => void desfazer()}>
-            Desfazer última importação
+        {ultima && (
+          <button type="button" class="botao" onClick={() => void desfazer(ultima.criadoEm)}>
+            Desfazer importação de {formatarDataHora(ultima.criadoEm)}
           </button>
         )}
       </section>

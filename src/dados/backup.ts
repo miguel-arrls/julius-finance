@@ -209,6 +209,12 @@ export async function temImportacaoParaDesfazer(base: JuliusDB): Promise<boolean
   return (await base.snapshots.count()) > 0;
 }
 
+/** Quando foi guardada a cópia que "Desfazer importação" restauraria (a mais recente). */
+export async function ultimaImportacao(base: JuliusDB): Promise<{ criadoEm: string } | null> {
+  const ultimo = await base.snapshots.orderBy('seq').last();
+  return ultimo ? { criadoEm: ultimo.criadoEm } : null;
+}
+
 export async function desfazerImportacao(base: JuliusDB): Promise<boolean> {
   return base.transaction('rw', base.tables, async () => {
     const ultimo = await base.snapshots.orderBy('seq').last();
