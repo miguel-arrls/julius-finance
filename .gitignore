@@ -8,3 +8,4 @@ dados-locais/
 *.local
 # Trava do agendador do Claude
 .claude/*.lock
+.claude/launch.json
