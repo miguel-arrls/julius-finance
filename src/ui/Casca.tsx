@@ -4,6 +4,7 @@ import { usarEstado, type Estado } from './estado';
 import { usarRota, type Rota } from './rota';
 import { FormDespesa } from './telas/FormDespesa';
 import { Inicio } from './telas/Inicio';
+import { Lancamentos } from './telas/Lancamentos';
 
 // Provisório: cada tela é ligada nas Tasks 11 a 15; a Task 15 remove este componente.
 function EmBreve() {
@@ -18,6 +19,8 @@ function Tela({ rota, estado }: { rota: Rota; estado: Estado }) {
       return <FormDespesa key="nova" estado={estado} />;
     case 'editar':
       return <FormDespesa key={`editar-${rota.id}`} estado={estado} id={rota.id} />;
+    case 'lancamentos':
+      return <Lancamentos estado={estado} />;
     default:
       return <EmBreve />;
   }
