@@ -1,34 +1,45 @@
-import { EstadoVazio } from './componentes/EstadoVazio';
 import { Navegacao } from './componentes/Navegacao';
 import { usarEstado, type Estado } from './estado';
 import { usarRota, type Rota } from './rota';
-import { Despesas } from './telas/Despesas';
+import { Ajustes } from './telas/Ajustes';
+import { Backup } from './telas/Backup';
+import { BoasVindas } from './telas/BoasVindas';
+import { Categorias } from './telas/Categorias';
 import { DetalheDespesa } from './telas/DetalheDespesa';
+import { Despesas } from './telas/Despesas';
 import { FormDespesa } from './telas/FormDespesa';
 import { Inicio } from './telas/Inicio';
 import { Lancamentos } from './telas/Lancamentos';
-
-// Provisório: cada tela é ligada nas Tasks 11 a 15; a Task 15 remove este componente.
-function EmBreve() {
-  return <EstadoVazio icone="tool" titulo="Em construção" texto="Esta tela chega numa próxima etapa." />;
-}
+import { Marcas } from './telas/Marcas';
+import { Meios } from './telas/Meios';
+import { OndeFicamDados } from './telas/OndeFicamDados';
 
 function Tela({ rota, estado }: { rota: Rota; estado: Estado }) {
   switch (rota.tela) {
     case 'inicio':
       return <Inicio estado={estado} />;
+    case 'lancamentos':
+      return <Lancamentos estado={estado} />;
     case 'nova':
       return <FormDespesa key="nova" estado={estado} />;
     case 'editar':
       return <FormDespesa key={`editar-${rota.id}`} estado={estado} id={rota.id} />;
-    case 'lancamentos':
-      return <Lancamentos estado={estado} />;
     case 'despesas':
       return <Despesas estado={estado} />;
     case 'despesa':
       return <DetalheDespesa key={rota.id} estado={estado} id={rota.id} />;
-    default:
-      return <EmBreve />;
+    case 'ajustes':
+      return <Ajustes />;
+    case 'categorias':
+      return <Categorias estado={estado} />;
+    case 'marcas':
+      return <Marcas estado={estado} />;
+    case 'meios':
+      return <Meios estado={estado} />;
+    case 'backup':
+      return <Backup estado={estado} />;
+    case 'dados':
+      return <OndeFicamDados />;
   }
 }
 
@@ -42,11 +53,12 @@ export function Casca() {
       </div>
     );
   }
+  const vazio = estado.categorias.length === 0 && estado.despesas.length === 0;
   return (
     <div class="casca">
       <Navegacao rota={rota} />
       <main class="conteudo" id="conteudo">
-        <Tela rota={rota} estado={estado} />
+        {vazio && rota.tela !== 'dados' ? <BoasVindas estado={estado} /> : <Tela rota={rota} estado={estado} />}
       </main>
     </div>
   );
