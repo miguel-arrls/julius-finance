@@ -149,6 +149,54 @@ describe('sincronizarRecorrencia', () => {
     expect(paga.pagoEm).toBe('2027-02-08');
   });
 
+  it('semanal com setembro pago: mudar o dia a partir de outubro não cria nada antes de outubro', () => {
+    const segunda = recorrente({ frequencia: 'semanal', inicio: '2026-09-07' }); // 07/09/2026 é segunda-feira
+    let atual = aplicar([], sincronizarRecorrencia(segunda, undefined, [], HOJE));
+    atual = atual.map((l) => (l.mes === '2026-09' ? { ...l, pagoEm: l.dataCobranca, valorPago: l.valor } : l));
+    const setembroAntes = atual.filter((l) => l.mes === '2026-09');
+    expect(setembroAntes.map((l) => l.id)).toEqual(['re1@2026-09-07', 're1@2026-09-14', 're1@2026-09-21', 're1@2026-09-28']);
+    const m = sincronizarRecorrencia({ ...segunda, inicio: '2026-09-08' }, undefined, atual, HOJE, '2026-10');
+    expect(m.salvar.filter((l) => l.mes < '2026-10').map((l) => l.id)).toEqual([]);
+    const final = aplicar(atual, m);
+    expect(final.filter((l) => l.mes === '2026-09')).toEqual(setembroAntes);
+    expect(final.filter((l) => l.mes === '2026-10').map((l) => l.id)).toEqual([
+      're1@2026-10-06',
+      're1@2026-10-13',
+      're1@2026-10-20',
+      're1@2026-10-27',
+    ]);
+  });
+
+  it('com "a partir de", não remove as não pagas de antes desse mês, mesmo as que deixaram de valer', () => {
+    const segunda = recorrente({ frequencia: 'semanal', inicio: '2026-09-07' });
+    let atual = aplicar([], sincronizarRecorrencia(segunda, undefined, [], HOJE));
+    atual = atual.map((l) => (l.id === 're1@2026-09-07' ? { ...l, pagoEm: '2026-09-07', valorPago: l.valor } : l));
+    const m = sincronizarRecorrencia({ ...segunda, inicio: '2026-09-08' }, undefined, atual, HOJE, '2026-10');
+    expect(m.remover.filter((id) => id < 're1@2026-10')).toEqual([]);
+    expect(m.salvar.filter((l) => l.mes < '2026-10')).toEqual([]);
+  });
+
+  it('mensal: mudar o dia a partir de um mês não toca os meses anteriores', () => {
+    const r = recorrente({ inicio: '2026-08-08' });
+    let atual = aplicar([], sincronizarRecorrencia(r, undefined, [], HOJE));
+    atual = atual.map((l) => (l.id === 're1@2026-08' ? { ...l, pagoEm: '2026-08-08', valorPago: l.valor } : l));
+    const anteriores = atual.filter((l) => l.mes < '2026-11');
+    const m = sincronizarRecorrencia({ ...r, inicio: '2026-08-20' }, undefined, atual, HOJE, '2026-11');
+    expect(m.salvar.filter((l) => l.mes < '2026-11')).toEqual([]);
+    expect(m.remover.filter((id) => id < 're1@2026-11')).toEqual([]);
+    const final = aplicar(atual, m);
+    expect(final.filter((l) => l.mes < '2026-11')).toEqual(anteriores);
+    expect(final.find((l) => l.id === 're1@2026-11')!.vencimento).toBe('2026-11-20');
+  });
+
+  it('sem "a partir de", continua removendo as não pagas que deixaram de valer e criando as que faltam', () => {
+    const segunda = recorrente({ frequencia: 'semanal', inicio: '2026-09-07' });
+    const atual = aplicar([], sincronizarRecorrencia(segunda, undefined, [], HOJE));
+    const m = sincronizarRecorrencia({ ...segunda, inicio: '2026-09-08' }, undefined, atual, HOJE);
+    expect(m.remover).toContain('re1@2026-09-07');
+    expect(m.salvar.map((l) => l.id)).toContain('re1@2026-09-08');
+  });
+
   it('ignora lançamentos de outra despesa', () => {
     const outroDespesa = { id: 'outra#1', despesaId: 'outra', mes: '2026-10', valor: 5000, estimado: false };
     const m = sincronizarRecorrencia(recorrente(), undefined, [outroDespesa], HOJE);

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { JuliusDB } from '../../src/dados/db';
 import * as repo from '../../src/dados/repositorio';
 import { pausar } from '../../src/dominio/recorrencias';
-import { ErroDominio } from '../../src/dominio/tipos';
+import { ErroDominio, type DespesaRecorrente } from '../../src/dominio/tipos';
 import { avulsa, CARTAO, parcelada, PIX, recorrente } from '../fabricas';
 
 const HOJE = '2026-10-06';
@@ -102,6 +102,25 @@ describe('salvarDespesa', () => {
     await repo.editarLancamento(base, 'av1#1', { valor: 12345 });
     await repo.salvarDespesa(base, avulsa({ vencimento: '2026-10-25' }), { hoje: HOJE });
     expect(await base.lancamentos.get('av1#1')).toMatchObject({ valor: 10000, vencimento: '2026-10-25', mes: '2026-10' });
+  });
+
+  it('bloqueia mudar a frequência de uma recorrência com cobranças pagas', async () => {
+    await repo.salvarDespesa(base, recorrente(), { hoje: HOJE });
+    await repo.marcarPaga(base, 're1@2026-10', '2026-10-08');
+    const lancsAntes = await lancs('re1');
+    const e = await erroDe(repo.salvarDespesa(base, recorrente({ frequencia: 'semanal' }), { hoje: HOJE, aPartirDe: '2026-11' }));
+    expect(e).toBeInstanceOf(ErroDominio);
+    expect((e as Error).message).toBe('Para mudar a frequência de uma recorrência com cobranças pagas, encerre-a e cadastre uma nova.');
+    expect(((await base.despesas.get('re1')) as DespesaRecorrente).frequencia).toBe('mensal');
+    expect(await lancs('re1')).toEqual(lancsAntes);
+    expect(await acoes('re1')).toEqual(['criada', 'paga']);
+  });
+
+  it('sem cobranças pagas, a frequência pode mudar', async () => {
+    await repo.salvarDespesa(base, recorrente(), { hoje: HOJE });
+    await repo.salvarDespesa(base, recorrente({ frequencia: 'anual' }), { hoje: HOJE, aPartirDe: '2026-10' });
+    expect(((await base.despesas.get('re1')) as DespesaRecorrente).frequencia).toBe('anual');
+    expect((await lancs('re1')).map((l) => l.id)).toEqual(['re1@2026', 're1@2027']);
   });
 
   it('não permite mudar o tipo', async () => {

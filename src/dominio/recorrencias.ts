@@ -85,7 +85,8 @@ export function gerarOcorrencias(r: DespesaRecorrente, meio: MeioPagamento | und
 
 /**
  * Cria as ocorrências que faltam e remove as não pagas que deixaram de valer.
- * Com `aPartirDe`, também recria as não pagas desse mês em diante (edição de valor/data).
+ * Com `aPartirDe`, recria as não pagas desse mês em diante (edição de valor/data) e não toca
+ * em nada de antes desse mês: não cria nem remove ocorrências com `mes < aPartirDe`.
  */
 export function sincronizarRecorrencia(
   r: DespesaRecorrente,
@@ -97,12 +98,13 @@ export function sincronizarRecorrencia(
   const geradas = gerarOcorrencias(r, meio, hoje);
   const validas = new Set(geradas.map((l) => l.id));
   const doMesmo = existentes.filter((l) => l.despesaId === r.id);
+  const alcancado = (mes: MesISO) => aPartirDe === undefined || mes >= aPartirDe;
   const remover = doMesmo
-    .filter((l) => !l.pagoEm && (!validas.has(l.id) || (aPartirDe !== undefined && l.mes >= aPartirDe)))
+    .filter((l) => !l.pagoEm && alcancado(l.mes) && (!validas.has(l.id) || aPartirDe !== undefined))
     .map((l) => l.id);
   const removidos = new Set(remover);
   const mantidos = new Set(doMesmo.filter((l) => !removidos.has(l.id)).map((l) => l.id));
-  return { salvar: geradas.filter((l) => !mantidos.has(l.id)), remover };
+  return { salvar: geradas.filter((l) => !mantidos.has(l.id) && alcancado(l.mes)), remover };
 }
 
 export function pausar(r: DespesaRecorrente, data: DataISO): DespesaRecorrente {

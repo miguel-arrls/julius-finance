@@ -87,6 +87,14 @@ export async function salvarDespesa(base: JuliusDB, despesa: Despesa, op: Opcoes
       throw new ErroDominio('Não é possível mudar o tipo de uma despesa já cadastrada.');
     }
     const existentes = await base.lancamentos.where('despesaId').equals(despesa.id).toArray();
+    if (
+      anterior?.tipo === 'recorrente' &&
+      despesa.tipo === 'recorrente' &&
+      anterior.frequencia !== despesa.frequencia &&
+      existentes.some((l) => l.pagoEm)
+    ) {
+      throw new ErroDominio('Para mudar a frequência de uma recorrência com cobranças pagas, encerre-a e cadastre uma nova.');
+    }
     // Sem mudança em campo gerador, as correções manuais dos lançamentos ficam como estão.
     const m: Mudancas = precisaRegerar(anterior, despesa)
       ? await mudancasDaDespesa(base, despesa, existentes, op.hoje, op.aPartirDe)
