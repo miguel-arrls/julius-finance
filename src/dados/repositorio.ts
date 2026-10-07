@@ -47,6 +47,20 @@ export function diffCampos(anterior: object | undefined, novo: object): Mudanca[
   return mudancas;
 }
 
+/** Campos que, se mudarem, exigem regerar os lançamentos (avulsa e parcelada). */
+const CAMPOS_GERADORES: Record<'avulsa' | 'parcelada', string[]> = {
+  avulsa: ['valor', 'vencimento', 'mes'],
+  parcelada: ['valorTotal', 'numParcelas', 'valorParcela', 'primeiroVencimento', 'mesPrimeira', 'comecaNaParcela'],
+};
+
+/** Recorrente sempre sincroniza (sem aPartirDe só cria o que falta). */
+function precisaRegerar(anterior: Despesa | undefined, nova: Despesa): boolean {
+  if (!anterior || nova.tipo === 'recorrente') return true;
+  const a = anterior as unknown as Record<string, unknown>;
+  const n = nova as unknown as Record<string, unknown>;
+  return CAMPOS_GERADORES[nova.tipo].some((c) => JSON.stringify(a[c]) !== JSON.stringify(n[c]));
+}
+
 async function mudancasDaDespesa(
   base: JuliusDB,
   d: Despesa,
@@ -73,7 +87,10 @@ export async function salvarDespesa(base: JuliusDB, despesa: Despesa, op: Opcoes
       throw new ErroDominio('Não é possível mudar o tipo de uma despesa já cadastrada.');
     }
     const existentes = await base.lancamentos.where('despesaId').equals(despesa.id).toArray();
-    const m = await mudancasDaDespesa(base, despesa, existentes, op.hoje, op.aPartirDe);
+    // Sem mudança em campo gerador, as correções manuais dos lançamentos ficam como estão.
+    const m: Mudancas = precisaRegerar(anterior, despesa)
+      ? await mudancasDaDespesa(base, despesa, existentes, op.hoje, op.aPartirDe)
+      : { salvar: [], remover: [] };
     const momento = agora();
     const gravar: Despesa = { ...despesa, criadaEm: anterior?.criadaEm ?? momento, atualizadaEm: momento };
     await base.despesas.put(gravar);

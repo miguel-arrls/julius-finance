@@ -67,6 +67,43 @@ describe('salvarDespesa', () => {
     expect(await base.historico.toArray()).toEqual(histAntes);
   });
 
+  it('salvar sem mudar campo gerador mantém as correções manuais da parcelada', async () => {
+    await repo.salvarDespesa(base, parcelada(), { hoje: HOJE });
+    await repo.editarLancamento(base, 'pa1#1', { vencimento: '2026-11-15' });
+    await repo.editarLancamento(base, 'pa1#2', { valor: 30000 });
+    const antes = await lancs('pa1');
+    await repo.salvarDespesa(base, parcelada({ descricao: 'Outra descrição', aConfirmar: ['valor'] }), { hoje: HOJE });
+    expect(await lancs('pa1')).toEqual(antes);
+    expect((await base.lancamentos.get('pa1#1'))!.vencimento).toBe('2026-11-15');
+    expect((await base.lancamentos.get('pa1#2'))!.valor).toBe(30000);
+    expect((await base.despesas.get('pa1'))!.descricao).toBe('Outra descrição');
+  });
+
+  it('mudar o valor total da parcelada continua recalculando as parcelas', async () => {
+    await repo.salvarDespesa(base, parcelada(), { hoje: HOJE });
+    await repo.editarLancamento(base, 'pa1#1', { vencimento: '2026-11-15' });
+    await repo.salvarDespesa(base, parcelada({ valorTotal: 120000 }), { hoje: HOJE });
+    expect((await lancs('pa1')).map((l) => [l.id, l.valor, l.vencimento])).toEqual([
+      ['pa1#1', 40000, '2026-11-10'],
+      ['pa1#2', 40000, '2026-12-10'],
+      ['pa1#3', 40000, '2027-01-10'],
+    ]);
+  });
+
+  it('salvar sem mudar campo gerador mantém as correções manuais da avulsa', async () => {
+    await repo.salvarDespesa(base, avulsa(), { hoje: HOJE });
+    await repo.editarLancamento(base, 'av1#1', { valor: 12345, vencimento: '2026-10-20' });
+    await repo.salvarDespesa(base, avulsa({ descricao: 'Outra descrição', observacoes: 'nota' }), { hoje: HOJE });
+    expect(await base.lancamentos.get('av1#1')).toMatchObject({ valor: 12345, vencimento: '2026-10-20' });
+  });
+
+  it('mudar o vencimento da avulsa continua regerando o lançamento', async () => {
+    await repo.salvarDespesa(base, avulsa(), { hoje: HOJE });
+    await repo.editarLancamento(base, 'av1#1', { valor: 12345 });
+    await repo.salvarDespesa(base, avulsa({ vencimento: '2026-10-25' }), { hoje: HOJE });
+    expect(await base.lancamentos.get('av1#1')).toMatchObject({ valor: 10000, vencimento: '2026-10-25', mes: '2026-10' });
+  });
+
   it('não permite mudar o tipo', async () => {
     await repo.salvarDespesa(base, avulsa({ id: 'x' }), { hoje: HOJE });
     await expect(repo.salvarDespesa(base, recorrente({ id: 'x' }), { hoje: HOJE })).rejects.toThrow(
