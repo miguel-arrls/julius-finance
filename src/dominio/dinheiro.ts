@@ -13,7 +13,7 @@ export function formatarNumero(c: Centavos): string {
 
 /** 'R$ 1.234,56' com espaço não separável. */
 export function formatarReais(c: Centavos): string {
-  return `${c < 0 ? '-' : ''}R$ ${formatarNumero(Math.abs(c))}`;
+  return `${c < 0 ? '-' : ''}R$ ${formatarNumero(Math.abs(c))}`;
 }
 
 /**

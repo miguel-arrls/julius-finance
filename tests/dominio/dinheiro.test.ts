@@ -3,11 +3,11 @@ import { dividirEmParcelas, formatarNumero, formatarReais, lerReais } from '../.
 
 describe('formatarReais', () => {
   it.each([
-    [123456, 'R$ 1.234,56'],
-    [5, 'R$ 0,05'],
-    [0, 'R$ 0,00'],
-    [-500, '-R$ 5,00'],
-    [100000000, 'R$ 1.000.000,00'],
+    [123456, 'R$ 1.234,56'],
+    [5, 'R$ 0,05'],
+    [0, 'R$ 0,00'],
+    [-500, '-R$ 5,00'],
+    [100000000, 'R$ 1.000.000,00'],
   ])('%i → %s', (centavos, esperado) => {
     expect(formatarReais(centavos)).toBe(esperado);
   });
@@ -31,7 +31,7 @@ describe('lerReais', () => {
     ['1234', 123400],
     [',5', 50],
     ['0', 0],
-    [' R$ 1.000,00 ', 100000],
+    [' R$ 1.000,00 ', 100000],
   ])('"%s" → %i centavos', (texto, esperado) => {
     expect(lerReais(texto)).toBe(esperado);
   });
