@@ -273,12 +273,13 @@ describe('cadastros', () => {
     await repo.editarLancamento(base, 're1@2026-11', { valor: 4512 });
     await repo.marcarPaga(base, 're1@2026-10', '2026-11-07');
     const paga = await base.lancamentos.get('re1@2026-10');
-    const antes = await base.lancamentos.get('re1@2026-11');
     await repo.salvarMeio(base, { ...CARTAO, diaVencimento: 10 }, HOJE);
     expect(await base.lancamentos.get('re1@2026-10')).toEqual(paga);
     const depois = (await base.lancamentos.get('re1@2026-11'))!;
     expect(depois).toMatchObject({ valor: 4512, estimado: false });
-    expect(depois.vencimento).not.toBe(antes!.vencimento);
+    expect(depois.vencimento).toBe('2026-12-10');
+    expect(depois.mes).toBe('2026-12');
+    expect((await base.lancamentos.get('re1@2026-10'))!.vencimento).toBe('2026-11-07');
   });
 
   it('excluirMeio tira o meio das despesas', async () => {
