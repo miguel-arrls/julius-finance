@@ -141,7 +141,7 @@ Dada `dataCobranca` com dia `d` no mês `M`, fechamento `F` e vencimento `V`:
 
 - `d < F` → a fatura fecha em F/M e vence no primeiro dia `V` depois de F/M.
 - `d ≥ F` → a fatura fecha em F/(M+1) e vence no primeiro dia `V` depois disso.
-- **Cobrança no próprio dia do fechamento vai para a fatura seguinte.** Ainda a confirmar com o usuário.
+- **Cobrança no próprio dia do fechamento vai para a fatura seguinte** (confirmado pelo usuário).
 
 O vencimento sugerido é editável. Se o usuário editar, vale o valor dele.
 
@@ -261,5 +261,6 @@ orçamento/metas, múltiplas moedas, anexos de comprovante, múltiplos usuários
 
 ## 12. Pendências do usuário
 
-- Confirmar a regra de cobrança no dia do fechamento (5.1).
 - Completar os itens "a confirmar" dos dados iniciais pela interface.
+- Lançar manualmente, como despesas avulsas no cartão, os itens de faturas anteriores à fatura
+  aberta (ex.: a que vence em 07/10/2026). Os dados iniciais não incluem esses itens.
