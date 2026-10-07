@@ -1,6 +1,6 @@
 # Julius Finance — design
 
-Data: 06/10/2026 · Status: aguardando revisão do usuário
+Data: 06/10/2026 · Status: aprovada em 06/10/2026
 
 ## 1. Objetivo
 
@@ -51,7 +51,7 @@ src/
     backup.ts         exportar, validar, importar, snapshot e desfazer importação
     csv.ts            exportação CSV
   marcas/
-    catalogo.ts       ~150 marcas comuns no Brasil (gerado do Simple Icons em build)
+    catalogo.gerado.ts ~110 marcas comuns (gerado do Simple Icons por script e commitado)
     identificar.ts    casar nome/apelidos com marca
   ui/                 componentes Preact por tela
   main.tsx
@@ -98,11 +98,12 @@ meioPagamentoId?, dataCompra?, observacoes, aConfirmar: string[], criadaEm, atua
   - Sem `valorParcela` informado: `valorTotal / numParcelas`, centavos restantes na 1ª parcela.
   - Com `valorTotal` e `valorParcela` inconsistentes: vale `valorParcela`; a tela mostra a diferença.
   - `comecaNaParcela = k`: gera só as parcelas k..n. As anteriores não existem no app (nada inventado).
-- **Recorrente:** `valor`, `valorVariavel`, `frequencia: 'mensal'|'semanal'|'anual'`, `inicio`,
-  `diaCobranca`, `fim?`, `pausadaDesde?`.
+- **Recorrente:** `valor`, `valorVariavel`, `frequencia: 'mensal'|'semanal'|'anual'`, `inicio`
+  (data da 1ª cobrança; o dia dela define o dia das seguintes), `fim?`, `pausas: { de, ate? }[]`
+  (intervalos pausados; `ate` ausente = ainda pausada).
   - `valorVariavel`: ocorrências futuras usam `valor` como estimativa e ficam marcadas `estimado`
     até o usuário informar o valor real daquele mês.
-  - Cada ocorrência tem `dataCobranca` (calculada por `diaCobranca`). O `vencimento` é igual à
+  - Cada ocorrência tem `dataCobranca` (calculada a partir de `inicio`). O `vencimento` é igual à
     `dataCobranca`, exceto no cartão de crédito, onde segue a regra 5.1.
 
 `aConfirmar` lista os campos pendentes (ex.: `['vencimento', 'loja']`). Some quando o campo é preenchido.
@@ -161,7 +162,8 @@ Somar meses mantém o dia original e ajusta para o último dia quando o mês é 
 - Horizonte: do `inicio` até o fim do mês atual + 12 meses. Roda ao abrir o app e após cada edição.
 - Idempotente: rodar duas vezes produz exatamente o mesmo conjunto.
 - Editar valor ou dia pergunta "a partir de qual mês". Só afeta ocorrências não pagas desse mês em diante.
-- Pausar: remove ocorrências não pagas com `dataCobranca ≥ pausadaDesde` e não gera novas. Retomar volta a gerar.
+- Pausar: abre um intervalo em `pausas`, remove as ocorrências não pagas a partir dele e não gera novas.
+  Retomar fecha o intervalo; as cobranças do período pausado não são criadas.
 - Encerrar: define `fim`. Remove ocorrências não pagas posteriores.
 - Ocorrências pagas nunca são removidas nem alteradas pela recorrência.
 
