@@ -56,6 +56,14 @@ export function plural(n: number, um: string, varios: string): string {
 export const ROTULO_ESTADO: Record<EstadoRecorrencia, string> = { ativa: 'Ativa', pausada: 'Pausada', encerrada: 'Encerrada' };
 
 const CAMPOS_VALOR = new Set(['valor', 'valorTotal', 'valorParcela', 'valorPago']);
+const CAMPOS_DATA = new Set(['vencimento', 'dataCompra', 'primeiroVencimento', 'inicio', 'fim', 'pagoEm', 'dataCobranca']);
+const CAMPOS_MES = new Set(['mes', 'mesPrimeira']);
+
+function descreverPausa(p: unknown): string {
+  const { de, ate } = (p ?? {}) as { de?: unknown; ate?: unknown };
+  if (!ehDataISO(de)) return JSON.stringify(p);
+  return ehDataISO(ate) ? `pausada de ${formatarData(de)} a ${formatarData(ate)}` : `pausada desde ${formatarData(de)}`;
+}
 
 const ROTULO_CAMPO: Record<string, string> = {
   descricao: 'descrição',
@@ -89,9 +97,10 @@ export function formatarValorCampo(campo: string, valor: unknown): string {
   if (CAMPOS_VALOR.has(campo) && typeof valor === 'number') return formatarReais(valor);
   if (typeof valor === 'boolean') return valor ? 'sim' : 'não';
   if (campo === 'frequencia' && typeof valor === 'string') return ROTULO_FREQUENCIA[valor as Frequencia]?.toLowerCase() ?? valor;
-  if (ehDataISO(valor)) return formatarData(valor);
-  if (ehMesISO(valor)) return formatarMes(valor);
+  if (CAMPOS_DATA.has(campo) && ehDataISO(valor)) return formatarData(valor);
+  if (CAMPOS_MES.has(campo) && ehMesISO(valor)) return formatarMes(valor);
   if (Array.isArray(valor)) {
+    if (campo === 'pausas') return valor.length === 0 ? 'nenhuma' : valor.map(descreverPausa).join('; ');
     if (valor.length === 0) return 'nenhum';
     return valor
       .map((x) => (typeof x === 'string' ? (ROTULO_A_CONFIRMAR[x as CampoAConfirmar] ?? x) : JSON.stringify(x)))

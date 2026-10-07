@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { descreverMudanca, resumoDespesa } from '../../src/ui/textos';
+import { resolverCadastros } from '../../src/ui/telas/DetalheDespesa';
 import { avulsa, lanc, parcelada, recorrente } from '../fabricas';
 
 describe('descreverMudanca', () => {
@@ -22,6 +23,31 @@ describe('descreverMudanca', () => {
 
   it('cadastro excluído (para: null) mostra vazio', () => {
     expect(descreverMudanca({ campo: 'marcaId', de: 'a', para: null }, (_c, v) => (v === 'a' ? 'Netflix' : undefined))).toBe('marca: Netflix → vazio');
+  });
+});
+
+describe('descreverMudanca: pausas e campos de texto', () => {
+  it('pausas', () => {
+    expect(descreverMudanca({ campo: 'pausas', de: [], para: [{ de: '2026-10-06' }] })).toBe('pausas: nenhuma → pausada desde 06/10/2026');
+    expect(
+      descreverMudanca({ campo: 'pausas', de: [{ de: '2026-10-06' }], para: [{ de: '2026-10-06', ate: '2026-12-01' }, { de: '2027-01-05' }] }),
+    ).toBe('pausas: pausada desde 06/10/2026 → pausada de 06/10/2026 a 01/12/2026; pausada desde 05/01/2027');
+  });
+  it('texto que parece data ou mês continua texto', () => {
+    expect(descreverMudanca({ campo: 'descricao', de: '2026-10', para: '2026-10-07' })).toBe('descrição: 2026-10 → 2026-10-07');
+    expect(descreverMudanca({ campo: 'observacoes', de: '2026-10', para: 'x' })).toBe('observações: 2026-10 → x');
+  });
+});
+
+describe('resolverCadastros', () => {
+  const estado = { categorias: [{ id: 'c1', nome: 'Saúde' }], marcas: [], meios: [] } as never;
+  it('id inexistente vira "cadastro removido"; existente vira o nome', () => {
+    const r = resolverCadastros(estado);
+    expect(r('categoriaId', 'c1')).toBe('Saúde');
+    expect(r('categoriaId', 'sumiu')).toBe('cadastro removido');
+    expect(r('marcaId', 'sumiu')).toBe('cadastro removido');
+    expect(r('categoriaId', null)).toBeUndefined();
+    expect(r('descricao', 'abc')).toBeUndefined();
   });
 });
 

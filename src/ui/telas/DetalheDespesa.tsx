@@ -27,6 +27,15 @@ import { descreverMudanca, plural, resumoDespesa, ROTULO_A_CONFIRMAR, ROTULO_ACA
 
 const MENSAGEM_FALHA = 'Não foi possível concluir. Tente de novo.';
 
+export function resolverCadastros(estado: Pick<Estado, 'categorias' | 'marcas' | 'meios'>) {
+  return (campo: string, valor: unknown): string | undefined => {
+    if (typeof valor !== 'string') return undefined;
+    const lista = campo === 'categoriaId' ? estado.categorias : campo === 'marcaId' ? estado.marcas : campo === 'meioPagamentoId' ? estado.meios : undefined;
+    if (!lista) return undefined;
+    return lista.find((x) => x.id === valor)?.nome ?? 'cadastro removido';
+  };
+}
+
 function rotuloLancamento(item: ItemLista): string {
   const { lancamento: l, despesa: d } = item;
   return d.tipo === 'parcelada' && l.numero ? `Parcela ${l.numero}/${d.numParcelas}` : formatarMes(l.mes);
@@ -159,14 +168,8 @@ export function DetalheDespesa({ estado, id }: { estado: Estado; id: string }) {
   const situacaoRecorrencia = d.tipo === 'recorrente' ? estadoRecorrencia(d, hoje) : null;
   const eventos = [...(historico ?? [])].sort((a, b) => b.quando.localeCompare(a.quando));
 
-  // Valores nulos (cadastro excluído, campo vazio) caem em formatarValorCampo, que mostra "vazio".
-  const resolver = (campo: string, valor: unknown): string | undefined => {
-    if (typeof valor !== 'string') return undefined;
-    if (campo === 'categoriaId') return estado.categorias.find((c) => c.id === valor)?.nome;
-    if (campo === 'marcaId') return estado.marcas.find((m) => m.id === valor)?.nome;
-    if (campo === 'meioPagamentoId') return estado.meios.find((m) => m.id === valor)?.nome;
-    return undefined;
-  };
+  // Valores nulos (campo vazio) caem em formatarValorCampo, que mostra "vazio".
+  const resolver = resolverCadastros(estado);
 
   async function executar(acao: () => Promise<void>, sucesso: string) {
     setErro('');
