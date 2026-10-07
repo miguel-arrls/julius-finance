@@ -9,6 +9,11 @@ import { PilulaSituacao } from './PilulaSituacao';
 
 const DISTANCIA_DESLIZE = 70;
 
+/** Deslizar para a esquerda mais de 70 px, e mais na horizontal que na vertical (senão é rolagem). */
+export function deslizePaga(dx: number, dy: number, podePagar: boolean): boolean {
+  return podePagar && dx < -DISTANCIA_DESLIZE && Math.abs(dx) > Math.abs(dy);
+}
+
 export function descreverLancamento(item: ItemLista): string {
   const { despesa: d, lancamento: l } = item;
   if (d.tipo === 'parcelada' && l.numero) return `Parcela ${l.numero}/${d.numParcelas}`;
@@ -18,7 +23,7 @@ export function descreverLancamento(item: ItemLista): string {
 
 export function LinhaLancamento({ item, onPagar }: { item: ItemLista; onPagar?: (item: ItemLista) => void }) {
   const { lancamento: l, despesa: d } = item;
-  const inicioX = useRef<number | null>(null);
+  const inicio = useRef<{ x: number; y: number } | null>(null);
   const deslizou = useRef(false);
   const podePagar = onPagar !== undefined && item.situacao !== 'paga';
   const subtitulo = [item.categoria?.nome, descreverLancamento(item)].filter(Boolean).join(' · ');
@@ -27,15 +32,18 @@ export function LinhaLancamento({ item, onPagar }: { item: ItemLista; onPagar?: 
     <li
       class="linha"
       onPointerDown={(e) => {
-        inicioX.current = e.clientX;
+        inicio.current = { x: e.clientX, y: e.clientY };
         deslizou.current = false;
       }}
       onPointerUp={(e) => {
-        if (inicioX.current !== null && podePagar && e.clientX - inicioX.current < -DISTANCIA_DESLIZE) {
+        if (inicio.current && deslizePaga(e.clientX - inicio.current.x, e.clientY - inicio.current.y, podePagar)) {
           deslizou.current = true;
           onPagar!(item);
         }
-        inicioX.current = null;
+        inicio.current = null;
+      }}
+      onPointerCancel={() => {
+        inicio.current = null;
       }}
     >
       <a

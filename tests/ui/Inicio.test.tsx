@@ -4,10 +4,7 @@ import type { JuliusDB } from '../../src/dados/db';
 import * as repo from '../../src/dados/repositorio';
 import { Inicio } from '../../src/ui/telas/Inicio';
 import { avulsa, CARTAO, recorrente } from '../fabricas';
-import { ComEstado, HOJE, novaBase, renderizar } from './auxiliar';
-
-// O normalizador padrão do testing-library troca U+00A0 por espaço comum; aqui o texto é conferido byte a byte.
-const SEM_NORMALIZAR = { normalizer: (t: string) => t };
+import { ComEstado, HOJE, novaBase, renderizar, SEM_NORMALIZAR } from './auxiliar';
 
 let base: JuliusDB;
 
@@ -56,12 +53,30 @@ describe('Início', () => {
     expect(linhas[0]).toHaveTextContent('Atrasada · 05/10');
   });
 
-  it('marca a fatura do cartão inteira como paga', async () => {
+  it('marca a fatura do cartão inteira como paga e desfaz só o que ela pagou', async () => {
     await popular();
+    await repo.salvarDespesa(
+      base,
+      recorrente({ id: 'r2', descricao: 'Nuvem', meioPagamentoId: CARTAO.id, inicio: '2026-09-12', valor: 1500, categoriaId: 'cat-assinaturas' }),
+      { hoje: HOJE },
+    );
+    await repo.salvarDespesa(
+      base,
+      recorrente({ id: 'r3', descricao: 'Música', meioPagamentoId: CARTAO.id, inicio: '2026-09-15', categoriaId: 'cat-assinaturas' }),
+      { hoje: HOJE },
+    );
+    await repo.marcarPaga(base, 'r3@2026-09', '2026-10-01');
     abrir();
     fireEvent.click(await screen.findByRole('button', { name: 'Marcar fatura como paga' }));
     expect(await screen.findByText('Fatura paga')).toBeInTheDocument();
     expect((await base.lancamentos.get('r@2026-09'))!.pagoEm).toBe(HOJE);
+    expect((await base.lancamentos.get('r2@2026-09'))!.pagoEm).toBe(HOJE);
+    expect((await base.lancamentos.get('r3@2026-09'))!.pagoEm).toBe('2026-10-01');
+    expect((await base.lancamentos.get('a#1'))!.pagoEm).toBeUndefined();
+    fireEvent.click(screen.getByRole('button', { name: 'Desfazer' }));
+    await waitFor(async () => expect((await base.lancamentos.get('r@2026-09'))!.pagoEm).toBeUndefined());
+    await waitFor(async () => expect((await base.lancamentos.get('r2@2026-09'))!.pagoEm).toBeUndefined());
+    expect((await base.lancamentos.get('r3@2026-09'))!.pagoEm).toBe('2026-10-01');
   });
 
   it('pagar pela linha e desfazer', async () => {
@@ -69,6 +84,7 @@ describe('Início', () => {
     abrir();
     fireEvent.click(await screen.findByRole('button', { name: 'Marcar Conta de luz como paga' }));
     expect(await screen.findByText('Conta de luz marcada como paga')).toBeInTheDocument();
+    await waitFor(async () => expect((await base.lancamentos.get('a#1'))!.pagoEm).toBe(HOJE));
     fireEvent.click(screen.getByRole('button', { name: 'Desfazer' }));
     await waitFor(async () => expect((await base.lancamentos.get('a#1'))!.pagoEm).toBeUndefined());
   });

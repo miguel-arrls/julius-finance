@@ -26,3 +26,6 @@ export function renderizar(ui: ComponentChildren, base: JuliusDB, hoje: DataISO 
     </Provedores>,
   );
 }
+
+/** O normalizador padrão do testing-library troca U+00A0 por espaço comum; com este, o texto é conferido byte a byte. */
+export const SEM_NORMALIZAR = { normalizer: (t: string) => t };

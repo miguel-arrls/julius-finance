@@ -23,6 +23,8 @@ import { usarBase, usarHoje, usarMes } from '../contexto';
 import type { Estado } from '../estado';
 import { plural } from '../textos';
 
+const MENSAGEM_FALHA = 'Não foi possível marcar como paga. Tente de novo.';
+
 function Metrica({ rotulo, valor, destaque = false, classe = '' }: { rotulo: string; valor: Centavos; destaque?: boolean; classe?: string }) {
   return (
     <div class={`metrica${destaque ? ' metrica-destaque' : ''}`}>
@@ -47,23 +49,31 @@ export function Inicio({ estado }: { estado: Estado }) {
   const aConfirmar = contarAConfirmar(estado.despesas);
   const lembrarBackup = estado.despesas.length > 0 && backupAtrasado(estado.config?.ultimoBackupEm, hoje);
   const categorias = new Map(estado.categorias.map((c) => [c.id, c]));
-  const maiorCategoria = resumo.porCategoria[0]?.total ?? 1;
+  const maiorCategoria = resumo.porCategoria[0]?.total || 1;
 
   async function pagar(item: ItemLista) {
-    await marcarPaga(base, item.lancamento.id, hoje);
-    mostrar(`${item.despesa.descricao} marcada como paga`, {
-      rotulo: 'Desfazer',
-      executar: () => void desfazerPagamento(base, item.lancamento.id),
-    });
+    try {
+      await marcarPaga(base, item.lancamento.id, hoje);
+      mostrar(`${item.despesa.descricao} marcada como paga`, {
+        rotulo: 'Desfazer',
+        executar: () => void desfazerPagamento(base, item.lancamento.id),
+      });
+    } catch {
+      mostrar(MENSAGEM_FALHA);
+    }
   }
 
   async function pagarFatura(f: Fatura) {
     const ids = f.idsAbertos;
-    await marcarVariosPagos(base, ids, hoje);
-    mostrar(`Fatura de ${formatarData(f.vencimento)} marcada como paga`, {
-      rotulo: 'Desfazer',
-      executar: () => void desfazerVariosPagamentos(base, ids),
-    });
+    try {
+      await marcarVariosPagos(base, ids, hoje);
+      mostrar(`Fatura de ${formatarData(f.vencimento)} marcada como paga`, {
+        rotulo: 'Desfazer',
+        executar: () => void desfazerVariosPagamentos(base, ids),
+      });
+    } catch {
+      mostrar(MENSAGEM_FALHA);
+    }
   }
 
   return (
