@@ -13,6 +13,9 @@ describe('rotas', () => {
     ['#/backup', { tela: 'backup' }],
     ['#/qualquer-coisa', { tela: 'inicio' }],
     ['#/nova/demais', { tela: 'inicio' }],
+    ['#/inicio', { tela: 'inicio' }],
+    ['#/editar/%', { tela: 'inicio' }],
+    ['#/despesas/%E0%A4%A', { tela: 'inicio' }],
   ])('lerRota(%s)', (hash, esperado) => {
     expect(lerRota(hash)).toEqual(esperado);
   });

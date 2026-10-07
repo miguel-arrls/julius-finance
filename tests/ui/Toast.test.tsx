@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/preact';
 import { act } from 'preact/test-utils';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ToastProvider, usarToast } from '../../src/ui/componentes/Toast';
 
 function Disparador({ executar }: { executar: () => void }) {
@@ -13,6 +13,10 @@ function Disparador({ executar }: { executar: () => void }) {
 }
 
 describe('Toast', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('mostra a mensagem e executa a ação uma vez', () => {
     const executar = vi.fn();
     render(
@@ -36,9 +40,12 @@ describe('Toast', () => {
     );
     fireEvent.click(screen.getByText('disparar'));
     act(() => {
-      vi.advanceTimersByTime(5001);
+      vi.advanceTimersByTime(4999);
+    });
+    expect(screen.getByText('Despesa paga')).toBeInTheDocument();
+    act(() => {
+      vi.advanceTimersByTime(2);
     });
     expect(screen.queryByText('Despesa paga')).toBeNull();
-    vi.useRealTimers();
   });
 });

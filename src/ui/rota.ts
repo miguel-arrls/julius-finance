@@ -20,7 +20,12 @@ const SIMPLES: readonly TelaSimples[] = [
 ];
 
 export function lerRota(hash: string): Rota {
-  const partes = hash.replace(/^#\/?/, '').split('/').filter(Boolean).map(decodeURIComponent);
+  let partes: string[];
+  try {
+    partes = hash.replace(/^#\/?/, '').split('/').filter(Boolean).map(decodeURIComponent);
+  } catch {
+    return { tela: 'inicio' }; // hash malformado (ex.: %)
+  }
   const [a, b, c] = partes;
   if (c !== undefined) return { tela: 'inicio' };
   if (a === 'editar' && b) return { tela: 'editar', id: b };

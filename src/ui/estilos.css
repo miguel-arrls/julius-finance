@@ -16,6 +16,7 @@
   --sucesso-suave: #e7f4ea;
   --aviso: #8a5a00;
   --aviso-suave: #fff4dc;
+  --pendente-texto: #1554b8;
   --raio: 12px;
   --toque: 44px;
   --nav-altura: 64px;
@@ -42,6 +43,7 @@
     --sucesso-suave: #10301a;
     --aviso: #ffcc66;
     --aviso-suave: #3a2c0a;
+    --pendente-texto: #3b8cff;
   }
 }
 
@@ -162,7 +164,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .pilula-paga { background: var(--sucesso-suave); color: var(--sucesso); }
 .pilula-atrasada { background: var(--perigo-suave); color: var(--perigo); }
 .pilula-sem-vencimento { background: var(--aviso-suave); color: var(--aviso); }
-.pilula-pendente { background: var(--acento-suave); color: var(--acento); }
+.pilula-pendente { background: var(--acento-suave); color: var(--pendente-texto); }
 
 /* Logo */
 .logo {
