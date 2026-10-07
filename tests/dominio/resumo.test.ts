@@ -82,6 +82,57 @@ describe('faturasDoMes', () => {
   });
 });
 
+describe('faturasDoMes — agrupamento', () => {
+  const cadComDoisCartoes: Cadastros = {
+    despesas: [
+      recorrente({ id: 're1', descricao: 'Streaming', categoriaId: 'cat-assinaturas', meioPagamentoId: 'mp-cartao' }),
+      recorrente({ id: 're2', descricao: 'Nuvem', categoriaId: 'cat-assinaturas', meioPagamentoId: 'mp-cartao' }),
+      recorrente({ id: 're3', descricao: 'Cinema', categoriaId: 'cat-lazer', meioPagamentoId: 'mp-cartao-2' }),
+    ],
+    categorias: CATEGORIAS_PADRAO,
+    marcas: [],
+    meios: [
+      CARTAO,
+      { id: 'mp-cartao-2', nome: 'Cartão Dois', tipo: 'credito', diaFechamento: 10, diaVencimento: 20 },
+    ],
+  };
+
+  it('fatura toda paga: dois lançamentos pagos resulta em pago: true e idsAbertos vazio', () => {
+    const lcs = [
+      lanc({ id: 'F1', despesaId: 're1', mes: '2026-10', vencimento: '2026-10-07', valor: 1000, pagoEm: '2026-10-05', valorPago: 1000 }),
+      lanc({ id: 'F2', despesaId: 're2', mes: '2026-10', vencimento: '2026-10-07', valor: 2000, pagoEm: '2026-10-06', valorPago: 2000 }),
+    ];
+    const itensF = detalhar(lcs, cadComDoisCartoes, '2026-10-06');
+    expect(faturasDoMes(itensF, '2026-10')).toEqual([
+      { meioId: 'mp-cartao', vencimento: '2026-10-07', total: 3000, pago: true, ids: ['F1', 'F2'], idsAbertos: [] },
+    ]);
+  });
+
+  it('dois vencimentos no mesmo cartão no mesmo mês resulta em duas faturas ordenadas', () => {
+    const lcs = [
+      lanc({ id: 'G1', despesaId: 're1', mes: '2026-10', vencimento: '2026-10-07', valor: 1000 }),
+      lanc({ id: 'G2', despesaId: 're2', mes: '2026-10', vencimento: '2026-10-28', valor: 2000 }),
+    ];
+    const itensG = detalhar(lcs, cadComDoisCartoes, '2026-10-06');
+    expect(faturasDoMes(itensG, '2026-10')).toEqual([
+      { meioId: 'mp-cartao', vencimento: '2026-10-07', total: 1000, pago: false, ids: ['G1'], idsAbertos: ['G1'] },
+      { meioId: 'mp-cartao', vencimento: '2026-10-28', total: 2000, pago: false, ids: ['G2'], idsAbertos: ['G2'] },
+    ]);
+  });
+
+  it('dois cartões com mesmo vencimento resulta em duas faturas separadas', () => {
+    const lcs = [
+      lanc({ id: 'H1', despesaId: 're1', mes: '2026-10', vencimento: '2026-10-07', valor: 1000 }),
+      lanc({ id: 'H2', despesaId: 're3', mes: '2026-10', vencimento: '2026-10-07', valor: 2000 }),
+    ];
+    const itensH = detalhar(lcs, cadComDoisCartoes, '2026-10-06');
+    expect(faturasDoMes(itensH, '2026-10')).toEqual([
+      { meioId: 'mp-cartao', vencimento: '2026-10-07', total: 1000, pago: false, ids: ['H1'], idsAbertos: ['H1'] },
+      { meioId: 'mp-cartao-2', vencimento: '2026-10-07', total: 2000, pago: false, ids: ['H2'], idsAbertos: ['H2'] },
+    ]);
+  });
+});
+
 describe('totaisProximosMeses', () => {
   it('soma os 3 meses seguintes e marca estimativas', () => {
     expect(totaisProximosMeses(itens, '2026-10')).toEqual([

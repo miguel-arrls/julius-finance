@@ -104,11 +104,11 @@ export function resumoDoMes(itens: ItemLista[], mes: MesISO): ResumoMes {
 export function proximosVencimentos(itens: ItemLista[], limite = 5): ItemLista[] {
   const peso = (i: ItemLista) => (i.situacao === 'atrasada' ? 0 : 1);
   return itens
-    .filter((i) => i.situacao === 'atrasada' || i.situacao === 'pendente')
+    .filter((i) => (i.situacao === 'atrasada' || i.situacao === 'pendente') && i.lancamento.vencimento)
     .sort(
       (a, b) =>
         peso(a) - peso(b) ||
-        a.lancamento.vencimento!.localeCompare(b.lancamento.vencimento!) ||
+        (a.lancamento.vencimento ?? '').localeCompare(b.lancamento.vencimento ?? '') ||
         a.despesa.descricao.localeCompare(b.despesa.descricao, 'pt-BR'),
     )
     .slice(0, limite);

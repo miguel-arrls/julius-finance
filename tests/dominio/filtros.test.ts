@@ -6,9 +6,10 @@ import { avulsa, CARTAO, lanc, PIX, recorrente } from '../fabricas';
 
 const itens = detalhar(
   [
+    lanc({ id: 'lr2', despesaId: 'r', mes: '2026-11', vencimento: '2026-11-20' }),
     lanc({ id: 'la', despesaId: 'a', mes: '2026-10', vencimento: '2026-10-05' }),
     lanc({ id: 'lr1', despesaId: 'r', mes: '2026-10', vencimento: '2026-10-20' }),
-    lanc({ id: 'lr2', despesaId: 'r', mes: '2026-11', vencimento: '2026-11-20' }),
+    lanc({ id: 'ls', despesaId: 'r', mes: '2026-10' }),
   ],
   {
     despesas: [
@@ -35,19 +36,19 @@ describe('filtrar', () => {
     expect(ids({ texto: 'acai' })).toEqual(['la']);
     expect(ids({ texto: 'polo norte' })).toEqual(['la']);
     expect(ids({ texto: 'sorveteria' })).toEqual(['la']);
-    expect(ids({ texto: 'ACADEMIA' })).toEqual(['lr1', 'lr2']);
+    expect(ids({ texto: 'ACADEMIA' })).toEqual(['lr1', 'ls', 'lr2']);
   });
 
   it('filtra por mês, categoria, situação, tipo e meio', () => {
     expect(ids({ mes: '2026-11' })).toEqual(['lr2']);
-    expect(ids({ categoriaId: 'cat-saude' })).toEqual(['lr1', 'lr2']);
+    expect(ids({ categoriaId: 'cat-saude' })).toEqual(['lr1', 'ls', 'lr2']);
     expect(ids({ situacao: 'atrasada' })).toEqual(['la']);
-    expect(ids({ tipo: 'recorrente' })).toEqual(['lr1', 'lr2']);
+    expect(ids({ tipo: 'recorrente' })).toEqual(['lr1', 'ls', 'lr2']);
     expect(ids({ meioPagamentoId: 'mp-pix' })).toEqual(['la']);
-    expect(ids({ texto: 'academia', mes: '2026-10' })).toEqual(['lr1']);
+    expect(ids({ texto: 'academia', mes: '2026-10' })).toEqual(['lr1', 'ls']);
   });
 
   it('sem filtros devolve tudo ordenado por mês e vencimento', () => {
-    expect(ids({})).toEqual(['la', 'lr1', 'lr2']);
+    expect(ids({})).toEqual(['la', 'lr1', 'ls', 'lr2']);
   });
 });
