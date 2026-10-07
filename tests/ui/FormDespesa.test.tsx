@@ -145,7 +145,8 @@ describe('FormDespesa: edição', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Salvar despesa' }));
     await waitFor(async () => expect((await base.despesas.get('r'))!.descricao).toBe('Streaming novo'));
     const depois = (await base.lancamentos.toArray()).sort((a, b) => a.id.localeCompare(b.id));
-    expect(depois.map((l) => [l.id, l.valor])).toEqual(antes.map((l) => [l.id, l.valor]));
+    expect(antes.length).toBeGreaterThan(0);
+    expect(depois).toEqual(antes);
   });
 
   it('preencher a loja tira "loja" de a confirmar ao salvar', async () => {

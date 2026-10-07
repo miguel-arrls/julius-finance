@@ -110,9 +110,11 @@ describe('round-trip valoresDeDespesa -> montarDespesa', () => {
   const desc = 'Açaí & Cia — ção ⟦⟧';
   const semCarimbo = ({ criadaEm: _c, atualizadaEm: _a, ...resto }: Record<string, unknown>) => resto;
   const casos = {
-    avulsa: avulsa({ descricao: desc, valor: 120000, marcaId: 'm1', observacoes: 'obs ç' }),
+    avulsa: avulsa({ descricao: desc, valor: 120000, marcaId: 'm1', observacoes: 'obs ç', meioPagamentoId: 'mp-cartao', dataCompra: '2026-09-30', aConfirmar: ['valorTotal'] }),
+    'avulsa sem vencimento': avulsa({ descricao: desc, valor: 120000, vencimento: undefined, mes: '2026-12' }),
     'parcelada com valorParcela': parcelada({ descricao: desc, valorTotal: 120000, valorParcela: 40500, marcaId: 'm1' }),
     'parcelada sem valorParcela': parcelada({ descricao: desc, valorTotal: 120000, comecaNaParcela: 2 }),
+    'recorrente anual com fim': recorrente({ descricao: desc, frequencia: 'anual', inicio: '2026-03-15', fim: '2029-03-15' }),
     recorrente: recorrente({ descricao: desc, valor: 120000, fim: '2027-10-08', valorVariavel: true, pausas: [{ de: '2026-12-01' }] }),
   };
   for (const [nome, d] of Object.entries(casos)) {
