@@ -464,11 +464,11 @@ import { dividirEmParcelas, formatarNumero, formatarReais, lerReais } from '../.
 
 describe('formatarReais', () => {
   it.each([
-    [123456, 'R$ 1.234,56'],
-    [5, 'R$ 0,05'],
-    [0, 'R$ 0,00'],
-    [-500, '-R$ 5,00'],
-    [100000000, 'R$ 1.000.000,00'],
+    [123456, 'R$\u00a01.234,56'],
+    [5, 'R$\u00a00,05'],
+    [0, 'R$\u00a00,00'],
+    [-500, '-R$\u00a05,00'],
+    [100000000, 'R$\u00a01.000.000,00'],
   ])('%i → %s', (centavos, esperado) => {
     expect(formatarReais(centavos)).toBe(esperado);
   });
@@ -492,7 +492,7 @@ describe('lerReais', () => {
     ['1234', 123400],
     [',5', 50],
     ['0', 0],
-    [' R$ 1.000,00 ', 100000],
+    [' R$\u00a01.000,00 ', 100000],
   ])('"%s" → %i centavos', (texto, esperado) => {
     expect(lerReais(texto)).toBe(esperado);
   });
@@ -653,7 +653,7 @@ export function formatarNumero(c: Centavos): string {
 
 /** 'R$ 1.234,56' com espaço não separável. */
 export function formatarReais(c: Centavos): string {
-  return `${c < 0 ? '-' : ''}R$ ${formatarNumero(Math.abs(c))}`;
+  return `${c < 0 ? '-' : ''}R$\u00a0${formatarNumero(Math.abs(c))}`;
 }
 
 /**
@@ -4682,9 +4682,9 @@ describe('Início', () => {
     await popular();
     abrir();
     await screen.findByRole('heading', { name: 'outubro de 2026' });
-    expect(within(metrica('Total do mês')).getByText('R$ 139,90')).toBeInTheDocument();
-    expect(within(metrica('Pago')).getByText('R$ 0,00')).toBeInTheDocument();
-    expect(within(metrica('Pendente')).getByText('R$ 139,90')).toBeInTheDocument();
+    expect(within(metrica('Total do mês')).getByText('R$\u00a0139,90')).toBeInTheDocument();
+    expect(within(metrica('Pago')).getByText('R$\u00a00,00')).toBeInTheDocument();
+    expect(within(metrica('Pendente')).getByText('R$\u00a0139,90')).toBeInTheDocument();
   });
 
   it('atrasadas aparecem primeiro nos próximos vencimentos', async () => {
@@ -5256,7 +5256,7 @@ describe('FormDespesa', () => {
     digitar('Número de parcelas', '3');
     digitar('1º vencimento', '2026-11-10');
     const previa = screen.getByRole('region', { name: 'Parcelas que serão geradas' });
-    expect(within(previa).getAllByText('R$ 400,00')).toHaveLength(3);
+    expect(within(previa).getAllByText('R$\u00a0400,00')).toHaveLength(3);
   });
 
   it('editar recorrente aplica o novo valor a partir do mês escolhido', async () => {
@@ -6331,7 +6331,7 @@ import { avulsa, lanc, parcelada, recorrente } from '../fabricas';
 
 describe('descreverMudanca', () => {
   it.each([
-    [{ campo: 'valorTotal', de: 100000, para: 120000 }, 'valor total: R$ 1.000,00 → R$ 1.200,00'],
+    [{ campo: 'valorTotal', de: 100000, para: 120000 }, 'valor total: R$\u00a01.000,00 → R$\u00a01.200,00'],
     [{ campo: 'vencimento', de: null, para: '2026-11-07' }, 'vencimento: vazio → 07/11/2026'],
     [{ campo: 'mesPrimeira', de: '2026-10', para: '2026-11' }, 'mês da 1ª parcela: outubro de 2026 → novembro de 2026'],
     [{ campo: 'aConfirmar', de: ['vencimento', 'loja'], para: [] }, 'a confirmar: vencimento, loja ou marca → nenhum'],
@@ -6350,19 +6350,19 @@ describe('descreverMudanca', () => {
 
 describe('resumoDespesa', () => {
   it('recorrente', () => {
-    expect(resumoDespesa(recorrente({ valorVariavel: true }), [])).toBe('Mensal · R$ 39,90 (varia)');
+    expect(resumoDespesa(recorrente({ valorVariavel: true }), [])).toBe('Mensal · R$\u00a039,90 (varia)');
   });
   it('parcelada em andamento', () => {
     const d = parcelada({ numParcelas: 12, comecaNaParcela: 11, valorParcela: 45000 });
     const ls = [lanc({ id: 'pa1#11', despesaId: 'pa1', numero: 11, valor: 45000, pagoEm: '2026-10-06' }), lanc({ id: 'pa1#12', despesaId: 'pa1', numero: 12, valor: 45000 })];
-    expect(resumoDespesa(d, ls)).toBe('Parcelas 11 a 12 de R$ 450,00 · 1 paga');
+    expect(resumoDespesa(d, ls)).toBe('Parcelas 11 a 12 de R$\u00a0450,00 · 1 paga');
   });
   it('parcelada desde o início', () => {
-    expect(resumoDespesa(parcelada(), [])).toBe('3 parcelas de R$ 333,34 · 0 pagas');
+    expect(resumoDespesa(parcelada(), [])).toBe('3 parcelas de R$\u00a0333,34 · 0 pagas');
   });
   it('avulsa', () => {
-    expect(resumoDespesa(avulsa(), [])).toBe('R$ 100,00 · vence 10/10/2026');
-    expect(resumoDespesa(avulsa({ vencimento: undefined }), [])).toBe('R$ 100,00 · vencimento a confirmar');
+    expect(resumoDespesa(avulsa(), [])).toBe('R$\u00a0100,00 · vence 10/10/2026');
+    expect(resumoDespesa(avulsa({ vencimento: undefined }), [])).toBe('R$\u00a0100,00 · vencimento a confirmar');
   });
 });
 ```
@@ -8626,7 +8626,7 @@ test('parcelada: cadastrar, pagar, exportar, apagar tudo e importar de volta', a
   await page.getByLabel('Valor total').fill('1.200,00');
   await page.getByLabel('Número de parcelas').fill('3');
   await page.getByLabel('1º vencimento').fill('2026-11-10');
-  await expect(page.getByRole('region', { name: 'Parcelas que serão geradas' }).getByText('R$ 400,00')).toHaveCount(3);
+  await expect(page.getByRole('region', { name: 'Parcelas que serão geradas' }).getByText('R$\u00a0400,00')).toHaveCount(3);
   await page.getByRole('button', { name: 'Salvar despesa' }).click();
 
   await expect(page.getByRole('heading', { name: 'Notebook Ação' })).toBeVisible();

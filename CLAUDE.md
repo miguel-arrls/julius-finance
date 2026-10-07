@@ -30,7 +30,7 @@ npm run dados-iniciais # dados-locais/definicao.json → dados-locais/contas-ini
 
 - **Privacidade:** `dados-locais/` tem dados financeiros reais e **nunca** é commitado. Nenhum valor real do usuário em código, testes, commits ou docs (o repo é público). Testes usam dados sintéticos.
 - **Sem rede:** o app não chama nenhum serviço externo; a CSP de produção tem `connect-src 'self'`. Não adicionar fetch, analytics, fontes ou CDNs externos.
-- **Dinheiro em centavos inteiros.** Nunca float. Exibição `R$ 1.234,56` via `formatarReais`.
+- **Dinheiro em centavos inteiros.** Nunca float. Exibição `R$\u00a01.234,56` via `formatarReais`.
 - **Datas como texto `AAAA-MM-DD`**, meses `AAAA-MM`. Nunca `new Date('AAAA-MM-DD')` (é UTC; volta um dia no Brasil). Usar `src/dominio/datas.ts`.
 - **IDs de lançamento determinísticos** (`despesa#n`, `despesa@periodo`): regerar nunca duplica; editar nunca toca lançamento pago.
 - **Toda escrita passa pelo repositório** (`src/dados/repositorio.ts`), que grava o histórico na mesma transação.
