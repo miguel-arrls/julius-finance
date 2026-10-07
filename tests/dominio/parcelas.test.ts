@@ -44,6 +44,13 @@ describe('gerarParcelas', () => {
     ]);
   });
 
+  it('começa na parcela 2: centavos ficam na parcela 1 não gerada', () => {
+    expect(gerarParcelas(parcelada({ comecaNaParcela: 2 })).map((l) => [l.id, l.valor])).toEqual([
+      ['pa1#2', 33333],
+      ['pa1#3', 33333],
+    ]);
+  });
+
   it.each([
     [{ numParcelas: 0 }, 'O número de parcelas deve estar entre 1 e 120.'],
     [{ numParcelas: 2.5 }, 'O número de parcelas deve estar entre 1 e 120.'],
@@ -100,6 +107,20 @@ describe('regerarParcelas', () => {
       () => regerarParcelas(parcelada({ comecaNaParcela: 2 }), atual),
       'A parcela 1 já foi paga. "Começa na parcela" não pode ser maior que 1.',
     );
+  });
+
+  it('começar na parcela 2 sem pagas: remove a 1ª e regera as outras', () => {
+    const atual = gerarParcelas(parcelada());
+    const m = regerarParcelas(parcelada({ comecaNaParcela: 2 }), atual);
+    expect(m.remover).toEqual(['pa1#1']);
+    expect(m.salvar.map((l) => l.id)).toEqual(['pa1#2', 'pa1#3']);
+  });
+
+  it('sem mudança com parcela paga: não lança erro e não remove nada', () => {
+    const inicial = gerarParcelas(parcelada());
+    const atual = [...inicial.slice(0, 2), pagar(inicial[2]!)];
+    const m = regerarParcelas(parcelada(), atual);
+    expect(m.remover).toEqual([]);
   });
 
   it('regerar duas vezes não duplica nem muda nada', () => {
