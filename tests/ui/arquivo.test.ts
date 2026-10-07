@@ -3,7 +3,12 @@ import { compartilharOuBaixar, lerArquivoTexto } from '../../src/ui/arquivo';
 
 const nav = navigator as unknown as { canShare?: unknown; share?: unknown };
 
+const criarOriginal = URL.createObjectURL;
+const revogarOriginal = URL.revokeObjectURL;
+
 afterEach(() => {
+  URL.createObjectURL = criarOriginal;
+  URL.revokeObjectURL = revogarOriginal;
   delete nav.canShare;
   delete nav.share;
   vi.restoreAllMocks();

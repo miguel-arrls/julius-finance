@@ -74,8 +74,13 @@ export function Lancamentos({ estado }: { estado: Estado }) {
 
   async function exportarCsv() {
     const nome = `julius-lancamentos-${todosMeses ? 'todos' : mes}.csv`;
-    const r = await compartilharOuBaixar(nome, gerarCsv(lista), 'text/csv;charset=utf-8');
-    if (r !== 'cancelado') mostrar('Planilha exportada');
+    try {
+      const r = await compartilharOuBaixar(nome, gerarCsv(lista), 'text/csv');
+      if (r !== 'cancelado') mostrar('Planilha exportada');
+    } catch (e) {
+      console.error(e);
+      mostrar('Não foi possível exportar. Tente de novo.');
+    }
   }
 
   const linhas = (xs: ItemLista[]) => (
