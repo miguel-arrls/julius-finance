@@ -1,12 +1,14 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { JuliusDB } from '../../src/dados/db';
 import * as repo from '../../src/dados/repositorio';
 import { pausar } from '../../src/dominio/recorrencias';
 import { ErroDominio } from '../../src/dominio/tipos';
-import { avulsa, CARTAO, parcelada, recorrente } from '../fabricas';
+import { avulsa, CARTAO, parcelada, PIX, recorrente } from '../fabricas';
 
 const HOJE = '2026-10-06';
 let base: JuliusDB;
+
+afterEach(() => vi.restoreAllMocks());
 
 beforeEach(async () => {
   base = new JuliusDB(`teste-${crypto.randomUUID()}`);
@@ -50,6 +52,21 @@ describe('salvarDespesa', () => {
     expect(await acoes('pa1')).toEqual(['criada', 'paga']);
   });
 
+  it('falha depois das escritas desfaz tudo (despesa, lançamentos e histórico)', async () => {
+    await repo.salvarDespesa(base, parcelada(), { hoje: HOJE });
+    await repo.marcarPaga(base, 'pa1#1', '2026-11-09');
+    await base.historico.add({ id: 'colide', despesaId: 'x', quando: 'q', acao: 'criada', mudancas: [] });
+    const despesaAntes = await base.despesas.get('pa1');
+    const lancsAntes = await lancs('pa1');
+    const histAntes = await base.historico.toArray();
+    vi.spyOn(crypto, 'randomUUID').mockReturnValue('colide' as ReturnType<typeof crypto.randomUUID>);
+    await expect(repo.salvarDespesa(base, parcelada({ valorTotal: 120000 }), { hoje: HOJE })).rejects.toBeDefined();
+    vi.restoreAllMocks();
+    expect(await base.despesas.get('pa1')).toEqual(despesaAntes);
+    expect(await lancs('pa1')).toEqual(lancsAntes);
+    expect(await base.historico.toArray()).toEqual(histAntes);
+  });
+
   it('não permite mudar o tipo', async () => {
     await repo.salvarDespesa(base, avulsa({ id: 'x' }), { hoje: HOJE });
     await expect(repo.salvarDespesa(base, recorrente({ id: 'x' }), { hoje: HOJE })).rejects.toThrow(
@@ -80,6 +97,13 @@ describe('recorrências no banco', () => {
     expect(await base.lancamentos.count()).toBe(13);
     await repo.materializarTodas(base, '2026-12-06');
     expect(await base.lancamentos.count()).toBe(15);
+  });
+
+  it('materializarTodas devolve os ids ignorados por registro inválido', async () => {
+    await repo.salvarDespesa(base, recorrente(), { hoje: HOJE });
+    await base.despesas.put(recorrente({ id: 'invalida', valor: 0 }));
+    expect(await repo.materializarTodas(base, HOJE)).toEqual(['invalida']);
+    expect(await lancs('re1')).toHaveLength(13);
   });
 
   it('editar o valor de um mês estimado confirma o valor e não volta atrás', async () => {
@@ -113,6 +137,29 @@ describe('pagamentos', () => {
     expect(l.pagoEm).toBeUndefined();
     expect(l.valorPago).toBeUndefined();
     expect(await acoes('av1')).toEqual(['criada', 'paga', 'pagamento desfeito']);
+  });
+
+  it('marcarVariosPagos com id inexistente rejeita e não grava nada', async () => {
+    await repo.salvarDespesa(base, avulsa(), { hoje: HOJE });
+    await expect(repo.marcarVariosPagos(base, ['av1#1', 'inexistente'], HOJE)).rejects.toThrow('Lançamento não encontrado.');
+    expect((await base.lancamentos.get('av1#1'))!.pagoEm).toBeUndefined();
+    expect(await acoes('av1')).toEqual(['criada']);
+  });
+
+  it('pagar e desfazer não alteram valor, vencimento, mês nem estimado', async () => {
+    await repo.salvarDespesa(base, avulsa(), { hoje: HOJE });
+    const base0 = (await base.lancamentos.get('av1#1'))!;
+    const fixos = (l: typeof base0) => [l.valor, l.vencimento, l.mes, l.estimado];
+    await repo.marcarPaga(base, 'av1#1', HOJE);
+    expect(fixos((await base.lancamentos.get('av1#1'))!)).toEqual(fixos(base0));
+    await repo.desfazerPagamento(base, 'av1#1');
+    expect(fixos((await base.lancamentos.get('av1#1'))!)).toEqual(fixos(base0));
+  });
+
+  it('marcarPaga com valorPago explícito grava esse valor', async () => {
+    await repo.salvarDespesa(base, avulsa(), { hoje: HOJE });
+    await repo.marcarPaga(base, 'av1#1', HOJE, 10500);
+    expect(await base.lancamentos.get('av1#1')).toMatchObject({ valor: 10000, valorPago: 10500, pagoEm: HOJE });
   });
 
   it('marcarVariosPagos marca a fatura inteira', async () => {
@@ -165,17 +212,50 @@ describe('cadastros', () => {
     await repo.inicializarPadrao(base);
     await repo.salvarDespesa(base, avulsa({ categoriaId: 'cat-saude' }), { hoje: HOJE });
     await expect(repo.excluirCategoria(base, 'cat-saude')).rejects.toThrow('Escolha outra categoria para as despesas que usam esta.');
+    await repo.salvarDespesa(base, avulsa({ id: 'vizinha', categoriaId: 'cat-lazer' }), { hoje: HOJE });
+    const vizinhaAntes = await base.despesas.get('vizinha');
+    const histVizinha = await base.historico.where('despesaId').equals('vizinha').toArray();
     await repo.excluirCategoria(base, 'cat-saude', 'cat-outros');
-    expect((await base.despesas.get('av1'))!.categoriaId).toBe('cat-outros');
+    const movida = (await base.despesas.get('av1'))!;
+    expect(movida.categoriaId).toBe('cat-outros');
     expect(await base.categorias.get('cat-saude')).toBeUndefined();
+    const editada = (await base.historico.where('despesaId').equals('av1').toArray()).filter((h) => h.acao === 'editada');
+    expect(editada).toHaveLength(1);
+    expect(editada[0]!.mudancas).toEqual([{ campo: 'categoriaId', de: 'cat-saude', para: 'cat-outros' }]);
+    expect(movida.atualizadaEm).toBe(editada[0]!.quando);
+    expect(await base.despesas.get('vizinha')).toEqual(vizinhaAntes);
+    expect(await base.historico.where('despesaId').equals('vizinha').toArray()).toEqual(histVizinha);
+  });
+
+  it('excluirCategoria rejeita substituta igual ao id ou inexistente', async () => {
+    await repo.inicializarPadrao(base);
+    await repo.salvarDespesa(base, avulsa({ categoriaId: 'cat-saude' }), { hoje: HOJE });
+    const msg = 'Escolha outra categoria para as despesas que usam esta.';
+    await expect(repo.excluirCategoria(base, 'cat-saude', 'cat-saude')).rejects.toThrow(msg);
+    await expect(repo.excluirCategoria(base, 'cat-saude', 'nao-existe')).rejects.toThrow(msg);
+    expect(await base.categorias.get('cat-saude')).toBeDefined();
+    expect((await base.despesas.get('av1'))!.categoriaId).toBe('cat-saude');
+  });
+
+  it('excluirCategoria recusa excluir a última categoria', async () => {
+    await repo.salvarCategoria(base, { id: 'unica', nome: 'Única', cor: '#000000', icone: 'dots', ordem: 1 });
+    await expect(repo.excluirCategoria(base, 'unica')).rejects.toThrow('Mantenha pelo menos uma categoria.');
+    expect(await base.categorias.count()).toBe(1);
   });
 
   it('excluirMarca tira a marca das despesas', async () => {
     await repo.salvarMarca(base, { id: 'm1', nome: 'Loja', apelidos: [' Lojinha ', ''] });
     expect((await base.marcas.get('m1'))!.apelidos).toEqual(['Lojinha']);
     await repo.salvarDespesa(base, avulsa({ marcaId: 'm1' }), { hoje: HOJE });
+    await repo.salvarMarca(base, { id: 'm2', nome: 'Outra', apelidos: [] });
+    await repo.salvarDespesa(base, avulsa({ id: 'vizinha', marcaId: 'm2' }), { hoje: HOJE });
+    const vizinhaAntes = await base.despesas.get('vizinha');
     await repo.excluirMarca(base, 'm1');
     expect((await base.despesas.get('av1'))!.marcaId).toBeUndefined();
+    const editada = (await base.historico.where('despesaId').equals('av1').toArray()).find((h) => h.acao === 'editada')!;
+    expect(editada.mudancas).toEqual([{ campo: 'marcaId', de: 'm1', para: null }]);
+    expect(await base.despesas.get('vizinha')).toEqual(vizinhaAntes);
+    expect(await acoes('vizinha')).toEqual(['criada']);
   });
 
   it('salvarMeio valida os dias e recalcula vencimentos futuros não pagos', async () => {
@@ -187,11 +267,32 @@ describe('cadastros', () => {
     expect((await base.lancamentos.get('re1@2026-10'))!.vencimento).toBe('2026-11-10');
   });
 
+  it('salvarMeio preserva valor confirmado e parcela paga ao mudar os dias', async () => {
+    await repo.salvarMeio(base, CARTAO, HOJE);
+    await repo.salvarDespesa(base, recorrente({ valorVariavel: true, meioPagamentoId: CARTAO.id }), { hoje: HOJE });
+    await repo.editarLancamento(base, 're1@2026-11', { valor: 4512 });
+    await repo.marcarPaga(base, 're1@2026-10', '2026-11-07');
+    const paga = await base.lancamentos.get('re1@2026-10');
+    const antes = await base.lancamentos.get('re1@2026-11');
+    await repo.salvarMeio(base, { ...CARTAO, diaVencimento: 10 }, HOJE);
+    expect(await base.lancamentos.get('re1@2026-10')).toEqual(paga);
+    const depois = (await base.lancamentos.get('re1@2026-11'))!;
+    expect(depois).toMatchObject({ valor: 4512, estimado: false });
+    expect(depois.vencimento).not.toBe(antes!.vencimento);
+  });
+
   it('excluirMeio tira o meio das despesas', async () => {
     await repo.salvarMeio(base, CARTAO, HOJE);
     await repo.salvarDespesa(base, avulsa({ meioPagamentoId: CARTAO.id }), { hoje: HOJE });
+    await repo.salvarMeio(base, PIX, HOJE);
+    await repo.salvarDespesa(base, avulsa({ id: 'vizinha', meioPagamentoId: PIX.id }), { hoje: HOJE });
+    const vizinhaAntes = await base.despesas.get('vizinha');
     await repo.excluirMeio(base, CARTAO.id);
     expect((await base.despesas.get('av1'))!.meioPagamentoId).toBeUndefined();
+    const editada = (await base.historico.where('despesaId').equals('av1').toArray()).find((h) => h.acao === 'editada')!;
+    expect(editada.mudancas).toEqual([{ campo: 'meioPagamentoId', de: CARTAO.id, para: null }]);
+    expect(await base.despesas.get('vizinha')).toEqual(vizinhaAntes);
+    expect(await acoes('vizinha')).toEqual(['criada']);
   });
 
   it('registrarBackup grava a data', async () => {

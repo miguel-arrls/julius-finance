@@ -2,7 +2,7 @@ import { mesDe } from '../dominio/datas';
 import { normalizar } from '../dominio/filtros';
 import { CATEGORIAS_PADRAO } from '../dominio/padroes';
 import { regerarAvulsa, regerarParcelas } from '../dominio/parcelas';
-import { sincronizarRecorrencia } from '../dominio/recorrencias';
+import { sincronizarRecorrencia, vencimentoDaCobranca } from '../dominio/recorrencias';
 import {
   ErroDominio,
   type AcaoHistorico,
@@ -199,8 +199,9 @@ export async function excluirDespesa(base: JuliusDB, id: string): Promise<void> 
 }
 
 /** Cria as ocorrências que faltam de todas as recorrentes. Roda ao abrir o app. */
-export async function materializarTodas(base: JuliusDB, hoje: DataISO): Promise<void> {
-  await base.transaction('rw', [base.despesas, base.lancamentos, base.meios], async () => {
+export async function materializarTodas(base: JuliusDB, hoje: DataISO): Promise<string[]> {
+  return base.transaction('rw', [base.despesas, base.lancamentos, base.meios], async () => {
+    const ignoradas: string[] = [];
     const recorrentes = (await base.despesas.where('tipo').equals('recorrente').toArray()) as DespesaRecorrente[];
     for (const r of recorrentes) {
       const existentes = await base.lancamentos.where('despesaId').equals(r.id).toArray();
@@ -209,11 +210,15 @@ export async function materializarTodas(base: JuliusDB, hoje: DataISO): Promise<
       try {
         m = sincronizarRecorrencia(r, meio, existentes, hoje);
       } catch (e) {
-        if (e instanceof ErroDominio) continue; // registro antigo inválido: não trava a abertura do app
+        if (e instanceof ErroDominio) {
+          ignoradas.push(r.id); // registro antigo inválido: não trava a abertura do app
+          continue;
+        }
         throw e;
       }
       await aplicarMudancas(base, m);
     }
+    return ignoradas;
   });
 }
 
@@ -227,15 +232,28 @@ export async function salvarCategoria(base: JuliusDB, c: Categoria): Promise<voi
   await base.categorias.put({ ...c, nome });
 }
 
+/** Remove/troca um campo de cadastro numa despesa, com histórico e atualizadaEm. */
+async function reescreverDespesa(base: JuliusDB, d: Despesa, campo: string, de: unknown, novo: Despesa, para: unknown): Promise<void> {
+  const momento = agora();
+  await base.despesas.put({ ...novo, atualizadaEm: momento });
+  await base.historico.add({
+    id: novoId(),
+    despesaId: d.id,
+    quando: momento,
+    acao: 'editada',
+    mudancas: [{ campo, de, para }],
+  });
+}
+
 export async function excluirCategoria(base: JuliusDB, id: string, substitutaId?: string): Promise<void> {
-  await base.transaction('rw', base.categorias, base.despesas, async () => {
+  await base.transaction('rw', base.categorias, base.despesas, base.historico, async () => {
     if ((await base.categorias.count()) <= 1) throw new ErroDominio('Mantenha pelo menos uma categoria.');
     const emUso = (await base.despesas.toArray()).filter((d) => d.categoriaId === id);
     if (emUso.length > 0) {
       if (!substitutaId || substitutaId === id || !(await base.categorias.get(substitutaId))) {
         throw new ErroDominio('Escolha outra categoria para as despesas que usam esta.');
       }
-      for (const d of emUso) await base.despesas.put({ ...d, categoriaId: substitutaId });
+      for (const d of emUso) await reescreverDespesa(base, d, 'categoriaId', d.categoriaId, { ...d, categoriaId: substitutaId }, substitutaId);
     }
     await base.categorias.delete(id);
   });
@@ -248,10 +266,10 @@ export async function salvarMarca(base: JuliusDB, m: Marca): Promise<void> {
 }
 
 export async function excluirMarca(base: JuliusDB, id: string): Promise<void> {
-  await base.transaction('rw', base.marcas, base.despesas, async () => {
+  await base.transaction('rw', base.marcas, base.despesas, base.historico, async () => {
     for (const d of (await base.despesas.toArray()).filter((x) => x.marcaId === id)) {
-      const { marcaId: _marcaId, ...resto } = d;
-      await base.despesas.put(resto as Despesa);
+      const { marcaId, ...resto } = d;
+      await reescreverDespesa(base, d, 'marcaId', marcaId, resto as Despesa, null);
     }
     await base.marcas.delete(id);
   });
@@ -283,16 +301,23 @@ export async function salvarMeio(base: JuliusDB, m: MeioPagamento, hoje: DataISO
     ) as DespesaRecorrente[];
     for (const r of recorrentes) {
       const existentes = await base.lancamentos.where('despesaId').equals(r.id).toArray();
-      await aplicarMudancas(base, sincronizarRecorrencia(r, limpo, existentes, hoje, mesDe(hoje)));
+      const atualizados = existentes.map((l) => {
+        if (l.pagoEm || !l.dataCobranca || l.mes < mesDe(hoje)) return l;
+        const vencimento = vencimentoDaCobranca(l.dataCobranca, limpo);
+        return { ...l, vencimento, mes: mesDe(vencimento) };
+      });
+      const alterados = atualizados.filter((l, i) => l !== existentes[i]);
+      if (alterados.length > 0) await base.lancamentos.bulkPut(alterados);
+      await aplicarMudancas(base, sincronizarRecorrencia(r, limpo, atualizados, hoje));
     }
   });
 }
 
 export async function excluirMeio(base: JuliusDB, id: string): Promise<void> {
-  await base.transaction('rw', base.meios, base.despesas, async () => {
+  await base.transaction('rw', base.meios, base.despesas, base.historico, async () => {
     for (const d of (await base.despesas.toArray()).filter((x) => x.meioPagamentoId === id)) {
-      const { meioPagamentoId: _meio, ...resto } = d;
-      await base.despesas.put(resto as Despesa);
+      const { meioPagamentoId, ...resto } = d;
+      await reescreverDespesa(base, d, 'meioPagamentoId', meioPagamentoId, resto as Despesa, null);
     }
     await base.meios.delete(id);
   });
