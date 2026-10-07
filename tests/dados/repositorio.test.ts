@@ -127,6 +127,73 @@ describe('recorrências no banco', () => {
   });
 });
 
+async function erroDe(p: Promise<unknown>): Promise<unknown> {
+  try {
+    await p;
+  } catch (e) {
+    return e;
+  }
+  throw new Error('Era esperado que rejeitasse');
+}
+
+describe('editarPagamento', () => {
+  beforeEach(async () => {
+    await repo.salvarDespesa(base, avulsa(), { hoje: HOJE });
+    await repo.marcarPaga(base, 'av1#1', HOJE);
+  });
+
+  it('corrige a data e o valor pagos e registra no histórico, sem tocar valor e vencimento', async () => {
+    await repo.editarPagamento(base, 'av1#1', { pagoEm: '2026-10-03', valorPago: 9876 });
+    expect(await base.lancamentos.get('av1#1')).toEqual({
+      id: 'av1#1',
+      despesaId: 'av1',
+      mes: '2026-10',
+      vencimento: '2026-10-10',
+      valor: 10000,
+      estimado: false,
+      pagoEm: '2026-10-03',
+      valorPago: 9876,
+    });
+    const editadas = (await base.historico.where('despesaId').equals('av1').toArray()).filter((h) => h.acao === 'editada');
+    expect(editadas).toHaveLength(1);
+    expect(editadas[0]!.lancamentoId).toBe('av1#1');
+    expect(editadas[0]!.mudancas).toEqual([
+      { campo: 'pagoEm', de: HOJE, para: '2026-10-03' },
+      { campo: 'valorPago', de: 10000, para: 9876 },
+    ]);
+  });
+
+  it('sem mudança não grava histórico', async () => {
+    await repo.editarPagamento(base, 'av1#1', { pagoEm: HOJE, valorPago: 10000 });
+    expect(await acoes('av1')).toEqual(['criada', 'paga']);
+  });
+
+  it.each([
+    ['lançamento não pago', 'nao-pago', { pagoEm: '2026-10-03', valorPago: 9876 }, 'Este lançamento não está pago.'],
+    ['data inválida', 'av1#1', { pagoEm: '2026-02-30', valorPago: 9876 }, 'Data inválida.'],
+    ['data vazia', 'av1#1', { pagoEm: '', valorPago: 9876 }, 'Data inválida.'],
+    ['valor zero', 'av1#1', { pagoEm: '2026-10-03', valorPago: 0 }, 'Informe um valor maior que zero.'],
+    ['valor negativo', 'av1#1', { pagoEm: '2026-10-03', valorPago: -5 }, 'Informe um valor maior que zero.'],
+    ['valor fracionário', 'av1#1', { pagoEm: '2026-10-03', valorPago: 10.5 }, 'Informe um valor maior que zero.'],
+  ])('rejeita %s sem gravar nada', async (_caso, id, campos, mensagem) => {
+    await repo.salvarDespesa(base, avulsa({ id: 'nao-pago' }), { hoje: HOJE });
+    const antes = await base.lancamentos.toArray();
+    const historicoAntes = await base.historico.count();
+    const alvo = id === 'nao-pago' ? 'nao-pago#1' : id;
+    const e = await erroDe(repo.editarPagamento(base, alvo, campos));
+    expect(e).toBeInstanceOf(ErroDominio);
+    expect((e as Error).message).toBe(mensagem);
+    expect(await base.lancamentos.toArray()).toEqual(antes);
+    expect(await base.historico.count()).toBe(historicoAntes);
+  });
+
+  it('rejeita lançamento inexistente', async () => {
+    const e = await erroDe(repo.editarPagamento(base, 'inexistente', { pagoEm: '2026-10-03', valorPago: 9876 }));
+    expect(e).toBeInstanceOf(ErroDominio);
+    expect((e as Error).message).toBe('Lançamento não encontrado.');
+  });
+});
+
 describe('pagamentos', () => {
   it('marcar e desfazer gravam histórico', async () => {
     await repo.salvarDespesa(base, avulsa(), { hoje: HOJE });

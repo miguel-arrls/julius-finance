@@ -61,6 +61,23 @@ describe('DetalheDespesa', () => {
     await waitFor(async () => expect(await base.lancamentos.get('r@2026-11')).toMatchObject({ valor: 4512, estimado: false }));
   });
 
+  it('editar um lançamento pago corrige o valor pago e a data do pagamento', async () => {
+    await repo.salvarDespesa(base, avulsa({ id: 'a' }), { hoje: HOJE });
+    await repo.marcarPaga(base, 'a#1', HOJE);
+    detalhe('a');
+    fireEvent.click(await screen.findByRole('button', { name: 'Editar outubro de 2026' }));
+    expect(screen.queryByLabelText('Valor')).toBeNull();
+    expect(screen.queryByLabelText('Vencimento')).toBeNull();
+    expect(screen.getByLabelText('Valor pago')).toHaveValue('100,00');
+    expect(screen.getByLabelText('Pago em')).toHaveValue(HOJE);
+    fireEvent.input(screen.getByLabelText('Valor pago'), { target: { value: '87,65' } });
+    fireEvent.input(screen.getByLabelText('Pago em'), { target: { value: '2026-10-03' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+    await waitFor(async () =>
+      expect(await base.lancamentos.get('a#1')).toMatchObject({ valorPago: 8765, pagoEm: '2026-10-03', valor: 10000, vencimento: '2026-10-10' }),
+    );
+  });
+
   it('excluir só depois de confirmar e volta para a lista', async () => {
     const confirmar = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true);
     await repo.salvarDespesa(base, avulsa(), { hoje: HOJE });

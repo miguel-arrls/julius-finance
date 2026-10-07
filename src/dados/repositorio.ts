@@ -1,4 +1,4 @@
-import { mesDe } from '../dominio/datas';
+import { ehDataISO, mesDe } from '../dominio/datas';
 import { normalizar } from '../dominio/filtros';
 import { CATEGORIAS_PADRAO } from '../dominio/padroes';
 import { regerarAvulsa, regerarParcelas } from '../dominio/parcelas';
@@ -178,6 +178,26 @@ export async function editarLancamento(
       novo.vencimento = campos.vencimento;
       novo.mes = mesDe(campos.vencimento);
     }
+    const mudancas = diffCampos(l, novo);
+    if (mudancas.length === 0) return;
+    await base.lancamentos.put(novo);
+    await base.historico.add({ id: novoId(), despesaId: l.despesaId, lancamentoId: id, quando: agora(), acao: 'editada', mudancas });
+  });
+}
+
+/** Corrige a data e o valor de um pagamento já registrado. */
+export async function editarPagamento(
+  base: JuliusDB,
+  id: string,
+  campos: { pagoEm: DataISO; valorPago: Centavos },
+): Promise<void> {
+  if (!ehDataISO(campos.pagoEm)) throw new ErroDominio('Data inválida.');
+  if (!Number.isInteger(campos.valorPago) || campos.valorPago <= 0) throw new ErroDominio('Informe um valor maior que zero.');
+  await base.transaction('rw', base.lancamentos, base.historico, async () => {
+    const l = await base.lancamentos.get(id);
+    if (!l) throw new ErroDominio('Lançamento não encontrado.');
+    if (!l.pagoEm) throw new ErroDominio('Este lançamento não está pago.');
+    const novo: Lancamento = { ...l, pagoEm: campos.pagoEm, valorPago: campos.valorPago };
     const mudancas = diffCampos(l, novo);
     if (mudancas.length === 0) return;
     await base.lancamentos.put(novo);

@@ -5,6 +5,7 @@ import {
   contarLancamentos,
   desfazerPagamento,
   editarLancamento,
+  editarPagamento,
   excluirDespesa,
   marcarPaga,
 } from '../../dados/repositorio';
@@ -100,18 +101,20 @@ function EditorLancamento({ item, aoFechar }: { item: ItemLista; aoFechar: () =>
   const base = usarBase();
   const mostrar = usarToast();
   const l = item.lancamento;
-  const [valor, setValor] = useState(formatarNumero(l.valor));
-  const [vencimento, setVencimento] = useState(l.vencimento ?? '');
+  const pago = l.pagoEm !== undefined;
+  const [valor, setValor] = useState(formatarNumero(pago ? valorEfetivo(l) : l.valor));
+  const [data, setData] = useState((pago ? l.pagoEm : l.vencimento) ?? '');
   const [erro, setErro] = useState('');
 
   async function salvar(e: Event) {
     e.preventDefault();
     const centavos = lerReais(valor);
     if (centavos === null || centavos <= 0) return setErro('Informe um valor maior que zero.');
-    if (vencimento && !ehDataISO(vencimento)) return setErro('Data inválida.');
+    if ((pago || data) && !ehDataISO(data)) return setErro('Data inválida.');
     try {
-      await editarLancamento(base, l.id, { valor: centavos, vencimento: vencimento || null });
-      mostrar('Lançamento atualizado');
+      if (pago) await editarPagamento(base, l.id, { pagoEm: data, valorPago: centavos });
+      else await editarLancamento(base, l.id, { valor: centavos, vencimento: data || null });
+      mostrar(pago ? 'Pagamento atualizado' : 'Lançamento atualizado');
       aoFechar();
     } catch (err) {
       setErro(err instanceof ErroDominio ? err.message : 'Não foi possível salvar. Tente de novo.');
@@ -122,11 +125,11 @@ function EditorLancamento({ item, aoFechar }: { item: ItemLista; aoFechar: () =>
     <li class="cartao">
       <form onSubmit={(e) => void salvar(e)} noValidate aria-label={`Editar ${rotuloLancamento(item)}`}>
         <div class="duas-colunas">
-          <Campo id={`e-valor-${l.id}`} rotulo="Valor">
+          <Campo id={`e-valor-${l.id}`} rotulo={pago ? 'Valor pago' : 'Valor'}>
             <input id={`e-valor-${l.id}`} inputMode="decimal" value={valor} onInput={(e) => setValor(e.currentTarget.value)} />
           </Campo>
-          <Campo id={`e-venc-${l.id}`} rotulo="Vencimento">
-            <input id={`e-venc-${l.id}`} type="date" value={vencimento} onInput={(e) => setVencimento(e.currentTarget.value)} />
+          <Campo id={`e-venc-${l.id}`} rotulo={pago ? 'Pago em' : 'Vencimento'}>
+            <input id={`e-venc-${l.id}`} type="date" value={data} onInput={(e) => setData(e.currentTarget.value)} />
           </Campo>
         </div>
         {erro && (
