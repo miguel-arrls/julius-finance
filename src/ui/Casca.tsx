@@ -2,14 +2,17 @@ import { EstadoVazio } from './componentes/EstadoVazio';
 import { Navegacao } from './componentes/Navegacao';
 import { usarEstado, type Estado } from './estado';
 import { usarRota, type Rota } from './rota';
+import { Inicio } from './telas/Inicio';
 
 // Provisório: cada tela é ligada nas Tasks 11 a 15; a Task 15 remove este componente.
 function EmBreve() {
   return <EstadoVazio icone="tool" titulo="Em construção" texto="Esta tela chega numa próxima etapa." />;
 }
 
-function Tela({ rota, estado: _estado }: { rota: Rota; estado: Estado }) {
+function Tela({ rota, estado }: { rota: Rota; estado: Estado }) {
   switch (rota.tela) {
+    case 'inicio':
+      return <Inicio estado={estado} />;
     default:
       return <EmBreve />;
   }
