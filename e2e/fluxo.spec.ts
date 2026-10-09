@@ -79,3 +79,27 @@ test('deslizar uma linha para a esquerda marca como paga', async ({ page }) => {
   await expect(page.getByText('Conta teste marcada como paga')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Lançamentos' })).toBeVisible(); // não navegou
 });
+
+test('nova despesa: campos lado a lado começam na mesma altura, mesmo com rótulo quebrado', async ({ page }) => {
+  // Em 320 px "Data da compra (opcional)" quebra em duas linhas com qualquer fonte.
+  await page.setViewportSize({ width: 320, height: 700 });
+  await comecarDoZero(page);
+  await page.getByRole('link', { name: 'Nova despesa' }).click();
+  for (const tipo of ['Avulsa', 'Parcelada', 'Recorrente']) {
+    await page.getByRole('radio', { name: tipo }).click();
+    await expect(page.locator('.duas-colunas').first()).toBeVisible();
+    const grades = await page.locator('.duas-colunas').evaluateAll((gs) =>
+      gs.map((g) => ({
+        texto: g.textContent,
+        rotulos: [...g.querySelectorAll('.campo-rotulo')].map((r) => Math.round(r.getBoundingClientRect().height)),
+        topos: [...g.children].map((c) => Math.round(c.querySelector('input, select')?.getBoundingClientRect().top ?? -1)),
+      })),
+    );
+    expect(grades.length, tipo).toBeGreaterThan(0);
+    if (tipo !== 'Recorrente') {
+      const data = grades.find((g) => g.texto?.includes('Data da compra'))!;
+      expect(Math.max(...data.rotulos), 'o rótulo precisa quebrar para o teste valer').toBeGreaterThan(Math.min(...data.rotulos));
+    }
+    expect(grades.filter((g) => new Set(g.topos).size > 1).map((g) => g.texto), tipo).toEqual([]);
+  }
+});

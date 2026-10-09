@@ -203,6 +203,10 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .campo-dica { margin: 0; font-size: 0.8125rem; color: var(--texto-2); }
 .campo-erro { margin: 0; font-size: 0.8125rem; color: var(--perigo); font-weight: 600; }
 .duas-colunas { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+/* Rótulo, controle e mensagem em linhas compartilhadas: um rótulo que quebra não desalinha a caixa vizinha. */
+.duas-colunas > .campo { display: grid; grid-template-rows: subgrid; grid-row: span 3; gap: 0; }
+.duas-colunas > .campo > .campo-rotulo { align-self: end; margin-bottom: 6px; }
+.duas-colunas > .campo > .campo-dica, .duas-colunas > .campo > .campo-erro { margin-top: 6px; }
 .check { display: flex; align-items: center; gap: 10px; min-height: var(--toque); }
 .check input { width: 22px; height: 22px; }
 .segmentado { display: flex; padding: 3px; margin-bottom: 16px; border-radius: 10px; background: var(--superficie-2); }
