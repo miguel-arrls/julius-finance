@@ -100,18 +100,25 @@ export function resumoDoMes(itens: ItemLista[], mes: MesISO): ResumoMes {
   };
 }
 
-/** Não pagas com vencimento: atrasadas primeiro, depois pela data. */
-export function proximosVencimentos(itens: ItemLista[], limite = 5): ItemLista[] {
+/**
+ * Não pagas com vencimento do mês, mais as atrasadas de meses anteriores.
+ * Atrasadas primeiro, depois pela data. Sem limite: a lista bate com o total do mês.
+ */
+export function proximosVencimentos(itens: ItemLista[], mes: MesISO): ItemLista[] {
   const peso = (i: ItemLista) => (i.situacao === 'atrasada' ? 0 : 1);
   return itens
-    .filter((i) => (i.situacao === 'atrasada' || i.situacao === 'pendente') && i.lancamento.vencimento)
+    .filter(
+      (i) =>
+        i.lancamento.vencimento &&
+        ((i.situacao === 'pendente' && i.lancamento.mes === mes) ||
+          (i.situacao === 'atrasada' && i.lancamento.mes <= mes)),
+    )
     .sort(
       (a, b) =>
         peso(a) - peso(b) ||
         (a.lancamento.vencimento ?? '').localeCompare(b.lancamento.vencimento ?? '') ||
         a.despesa.descricao.localeCompare(b.despesa.descricao, 'pt-BR'),
-    )
-    .slice(0, limite);
+    );
 }
 
 export function faturasDoMes(itens: ItemLista[], mes: MesISO): Fatura[] {

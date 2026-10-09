@@ -43,7 +43,7 @@ export function Inicio({ estado }: { estado: Estado }) {
   const itens = useMemo(() => detalhar(estado.lancamentos, estado, hoje), [estado, hoje]);
   const doMes = itens.filter((i) => i.lancamento.mes === mes);
   const resumo = resumoDoMes(itens, mes);
-  const proximos = proximosVencimentos(itens, 6);
+  const proximos = proximosVencimentos(itens, mes);
   const faturas = faturasDoMes(itens, mes);
   const futuros = totaisProximosMeses(itens, mes, 3);
   const aConfirmar = contarAConfirmar(estado.despesas);

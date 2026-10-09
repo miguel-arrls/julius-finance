@@ -53,6 +53,29 @@ describe('Início', () => {
     expect(linhas[0]).toHaveTextContent('Atrasada · 05/10');
   });
 
+  it('próximos vencimentos seguem o mês escolhido e não cortam a lista', async () => {
+    await popular();
+    for (let k = 0; k < 7; k++) {
+      await repo.salvarDespesa(
+        base,
+        avulsa({ id: `x${k}`, descricao: `Extra ${k}`, vencimento: `2026-10-2${k}`, mes: '2026-10', categoriaId: 'cat-moradia' }),
+        { hoje: HOJE },
+      );
+    }
+    abrir();
+    const secao = (await screen.findByRole('heading', { name: 'Próximos vencimentos' })).closest('section')!;
+    await waitFor(() => expect(within(secao).getAllByRole('listitem')).toHaveLength(9));
+    expect(within(secao).getByText('Extra 6')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Próximo mês' }));
+    await screen.findByRole('heading', { name: 'novembro de 2026' });
+    const linhas = within(secao).getAllByRole('listitem');
+    expect(linhas.map((l) => l.textContent)).toHaveLength(2);
+    expect(linhas[0]).toHaveTextContent('Atrasada · 05/10');
+    expect(linhas[1]).toHaveTextContent('Streaming');
+    expect(linhas[1]).toHaveTextContent('07/11');
+  });
+
   it('marca a fatura do cartão inteira como paga e desfaz só o que ela pagou', async () => {
     await popular();
     await repo.salvarDespesa(

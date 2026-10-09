@@ -68,9 +68,27 @@ describe('resumoDoMes', () => {
 });
 
 describe('proximosVencimentos', () => {
-  it('atrasadas primeiro, depois por data; ignora pagas e sem vencimento', () => {
-    expect(proximosVencimentos(itens).map((i) => i.lancamento.id)).toEqual(['L1', 'L2', 'L5', 'L6']);
-    expect(proximosVencimentos(itens, 2).map((i) => i.lancamento.id)).toEqual(['L1', 'L2']);
+  const ids = (mes: string) => proximosVencimentos(itens, mes).map((i) => i.lancamento.id);
+
+  it('só o mês escolhido, atrasadas primeiro; ignora pagas e sem vencimento', () => {
+    expect(ids('2026-10')).toEqual(['L1', 'L2']);
+  });
+
+  it('atrasadas de meses anteriores aparecem no topo de um mês futuro', () => {
+    expect(ids('2026-11')).toEqual(['L1', 'L5']);
+    expect(ids('2026-12')).toEqual(['L1', 'L6']);
+  });
+
+  it('mês anterior não mostra atrasadas de meses seguintes', () => {
+    expect(ids('2026-09')).toEqual([]);
+  });
+
+  it('não corta a lista', () => {
+    const muitos = Array.from({ length: 9 }, (_, k) =>
+      lanc({ id: `M${k}`, despesaId: 'av1', mes: '2026-11', vencimento: `2026-11-1${k}`, valor: 100 }),
+    );
+    const todos = detalhar(muitos, cad, '2026-10-06');
+    expect(proximosVencimentos(todos, '2026-11').map((i) => i.lancamento.id)).toEqual(muitos.map((l) => l.id));
   });
 });
 

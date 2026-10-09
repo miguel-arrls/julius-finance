@@ -194,6 +194,9 @@ button, input, select, textarea { font: inherit; color: inherit; }
   width: 100%; min-height: var(--toque); padding: 10px 12px; border: 1px solid var(--borda);
   border-radius: 10px; background: var(--superficie); font-size: 1rem;
 }
+/* iOS: data e mês nativos têm largura mínima própria e vazam da coluna; o texto vem centralizado e o vazio fica mais alto. */
+.campo input[type='date'], .campo input[type='month'] { -webkit-appearance: none; appearance: none; display: block; min-width: 0; }
+.campo input::-webkit-date-and-time-value { text-align: left; min-height: 1.5em; }
 .campo input[type='color'] { width: 64px; height: var(--toque); border: 1px solid var(--borda); border-radius: 10px; background: var(--superficie); }
 .campo textarea { min-height: 88px; resize: vertical; }
 .campo-com-erro input, .campo-com-erro select { border-color: var(--perigo); }
