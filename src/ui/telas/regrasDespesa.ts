@@ -88,6 +88,21 @@ export function valoresDeDespesa(d: Despesa, marcas: Marca[], mesAtual: MesISO):
   return v;
 }
 
+/** Valores para duplicar uma despesa: mesmos dados, datas limpas e começando do mês atual. */
+export function valoresDuplicados(d: Despesa, marcas: Marca[], mesAtual: MesISO): ValoresForm {
+  const v = valoresDeDespesa(d, marcas, mesAtual);
+  v.dataCompra = '';
+  v.vencimento = '';
+  v.mes = mesAtual;
+  v.primeiroVencimento = '';
+  v.mesPrimeira = mesAtual;
+  v.comecaNaParcela = '1';
+  v.inicio = '';
+  v.fim = '';
+  v.aConfirmar = [];
+  return v;
+}
+
 function valorPositivo(texto: string): boolean {
   const c = lerReais(texto);
   return c !== null && c > 0;

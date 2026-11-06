@@ -128,3 +128,16 @@ describe('Início', () => {
     expect(screen.getByText('Faça um backup: seus dados ficam só neste aparelho.')).toBeInTheDocument();
   });
 });
+
+describe('Início: o resumo leva à lista filtrada', () => {
+  it('métricas, categorias e fatura são links com os filtros do mês', async () => {
+    await popular();
+    abrir();
+    await screen.findByText('Gastos por categoria');
+    expect(metrica('Total do mês')).toHaveAttribute('href', '#/lancamentos?mes=2026-10');
+    expect(metrica('Pago')).toHaveAttribute('href', '#/lancamentos?mes=2026-10&situacao=paga');
+    expect(metrica('1 atrasada')).toHaveAttribute('href', '#/lancamentos?mes=2026-10&situacao=atrasada');
+    expect(screen.getByRole('link', { name: /^Moradia/ })).toHaveAttribute('href', '#/lancamentos?mes=2026-10&categoria=cat-moradia');
+    expect(screen.getByRole('link', { name: `Fatura ${CARTAO.nome}` })).toHaveAttribute('href', `#/lancamentos?mes=2026-10&meio=${CARTAO.id}`);
+  });
+});

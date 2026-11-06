@@ -187,3 +187,22 @@ describe('FormDespesa: novo cartão sem sair do formulário', () => {
     expect(screen.getByRole('radio', { name: 'Não informado' })).toHaveAttribute('aria-checked', 'true');
   });
 });
+
+describe('FormDespesa: duplicar', () => {
+  it('copia os dados com id novo e datas limpas, sem tocar na original', async () => {
+    await repo.salvarDespesa(base, avulsa({ id: 'orig', descricao: 'Feira ⟦sábado⟧', categoriaId: 'cat-alimentacao', valor: 8990, dataCompra: '2026-10-01' }), { hoje: HOJE });
+    renderizar(<ComEstado filho={(e) => <FormDespesa estado={e} de="orig" />} />, base);
+    await screen.findByRole('heading', { name: 'Nova despesa' });
+    expect(screen.getByText(/Cópia de “Feira ⟦sábado⟧”/)).toBeInTheDocument();
+    expect(screen.getByLabelText('Descrição')).toHaveValue('Feira ⟦sábado⟧');
+    expect(screen.getByLabelText('Valor')).toHaveValue('89,90');
+    expect(screen.getByLabelText('Vencimento')).toHaveValue('');
+    expect(screen.getByLabelText('Data da compra (opcional)')).toHaveValue('');
+    digitar('Vencimento', '2026-11-05');
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar despesa' }));
+    await waitFor(async () => expect(await base.despesas.count()).toBe(2));
+    const copia = (await base.despesas.toArray()).find((d) => d.id !== 'orig')!;
+    expect(copia).toMatchObject({ descricao: 'Feira ⟦sábado⟧', valor: 8990, vencimento: '2026-11-05' });
+    expect((await base.despesas.get('orig'))!.dataCompra).toBe('2026-10-01');
+  });
+});

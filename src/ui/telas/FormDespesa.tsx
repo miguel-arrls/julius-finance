@@ -22,6 +22,7 @@ import {
   sugerirVencimento,
   validar,
   valoresDeDespesa,
+  valoresDuplicados,
   valoresIniciais,
   type ErrosForm,
   type ValoresForm,
@@ -174,15 +175,20 @@ function Previa({ d, lancamentos, anteriores }: { d: Despesa; lancamentos: Lanca
   );
 }
 
-export function FormDespesa({ estado, id }: { estado: Estado; id?: string }) {
+export function FormDespesa({ estado, id, de }: { estado: Estado; id?: string; de?: string }) {
   const base = usarBase();
   const hoje = usarHoje();
   const { mes: mesAtual } = usarMes();
   const mostrar = usarToast();
   const existente = id ? estado.despesas.find((d) => d.id === id) : undefined;
+  const origem = !id && de ? estado.despesas.find((d) => d.id === de) : undefined;
   const [idDespesa] = useState(() => id ?? crypto.randomUUID());
   const [v, setV] = useState<ValoresForm>(() =>
-    existente ? valoresDeDespesa(existente, estado.marcas, mesAtual) : valoresIniciais(mesAtual),
+    existente
+      ? valoresDeDespesa(existente, estado.marcas, mesAtual)
+      : origem
+        ? valoresDuplicados(origem, estado.marcas, mesAtual)
+        : valoresIniciais(mesAtual),
   );
   const [erros, setErros] = useState<ErrosForm>({});
   const [erroGeral, setErroGeral] = useState('');
@@ -262,6 +268,7 @@ export function FormDespesa({ estado, id }: { estado: Estado; id?: string }) {
     <>
     <form class="formulario" onSubmit={(e) => void salvar(e)} noValidate>
       <h1>{existente ? 'Editar despesa' : 'Nova despesa'}</h1>
+      {origem && <p class="texto-suave">Cópia de “{origem.descricao}”. Confira as datas antes de salvar.</p>}
 
       {!existente && (
         <div class="segmentado" role="radiogroup" aria-label="Tipo de despesa">

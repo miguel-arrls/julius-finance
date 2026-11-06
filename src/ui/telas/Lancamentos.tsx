@@ -1,5 +1,5 @@
-import { IconFileSpreadsheet } from '@tabler/icons-preact';
-import { useMemo, useState } from 'preact/hooks';
+import { IconAdjustmentsHorizontal, IconFileSpreadsheet } from '@tabler/icons-preact';
+import { useEffect, useMemo, useState } from 'preact/hooks';
 import { gerarCsv } from '../../dados/csv';
 import { desfazerPagamento, marcarPaga } from '../../dados/repositorio';
 import { formatarMesCurto } from '../../dominio/datas';
@@ -8,33 +8,49 @@ import { filtrar } from '../../dominio/filtros';
 import { detalhar, valorEfetivo, type ItemLista } from '../../dominio/resumo';
 import type { Situacao, TipoDespesa } from '../../dominio/tipos';
 import { compartilharOuBaixar } from '../arquivo';
+import { Chips, type OpcaoChip } from '../componentes/Chips';
 import { EstadoVazio } from '../componentes/EstadoVazio';
 import { LinhaLancamento } from '../componentes/LinhaLancamento';
+import { LogoMeio } from '../componentes/Logo';
 import { usarToast } from '../componentes/Toast';
 import { usarBase, usarHoje, usarMes } from '../contexto';
 import type { Estado } from '../estado';
+import type { FiltrosRota } from '../rota';
 import { plural } from '../textos';
 
 const MENSAGEM_FALHA = 'Não foi possível marcar como paga. Tente de novo.';
 
-const SITUACOES: [Situacao, string][] = [
-  ['pendente', 'Pendentes'],
-  ['atrasada', 'Atrasadas'],
-  ['paga', 'Pagas'],
-  ['sem-vencimento', 'Sem vencimento'],
+const OPCOES_SITUACAO: OpcaoChip<Situacao | ''>[] = [
+  { valor: '', rotulo: 'Todas' },
+  { valor: 'pendente', rotulo: 'Pendentes' },
+  { valor: 'atrasada', rotulo: 'Atrasadas' },
+  { valor: 'paga', rotulo: 'Pagas' },
+  { valor: 'sem-vencimento', rotulo: 'Sem vencimento' },
+];
+const OPCOES_TIPO: OpcaoChip<TipoDespesa | ''>[] = [
+  { valor: '', rotulo: 'Todos os tipos' },
+  { valor: 'avulsa', rotulo: 'Avulsas' },
+  { valor: 'parcelada', rotulo: 'Parceladas' },
+  { valor: 'recorrente', rotulo: 'Recorrentes' },
 ];
 
-export function Lancamentos({ estado }: { estado: Estado }) {
+export function Lancamentos({ estado, filtros = {} }: { estado: Estado; filtros?: FiltrosRota }) {
   const base = usarBase();
   const hoje = usarHoje();
   const { mes, setMes } = usarMes();
   const mostrar = usarToast();
   const [texto, setTexto] = useState('');
   const [todosMeses, setTodosMeses] = useState(false);
-  const [categoriaId, setCategoriaId] = useState('');
-  const [situacao, setSituacao] = useState<Situacao | ''>('');
-  const [tipo, setTipo] = useState<TipoDespesa | ''>('');
-  const [meioId, setMeioId] = useState('');
+  const [categoriaId, setCategoriaId] = useState(filtros.categoriaId ?? '');
+  const [situacao, setSituacao] = useState<Situacao | ''>(filtros.situacao ?? '');
+  const [tipo, setTipo] = useState<TipoDespesa | ''>(filtros.tipo ?? '');
+  const [meioId, setMeioId] = useState(filtros.meioPagamentoId ?? '');
+  const [maisFiltros, setMaisFiltros] = useState(Boolean(filtros.categoriaId || filtros.tipo));
+
+  // O mês vindo da rota (ex.: tocar numa categoria do Início) passa a ser o mês do app.
+  useEffect(() => {
+    if (filtros.mes) setMes(filtros.mes);
+  }, [filtros.mes]);
 
   const itens = useMemo(() => detalhar(estado.lancamentos, estado, hoje), [estado, hoje]);
   const meses = useMemo(() => [...new Set([...itens.map((i) => i.lancamento.mes), mes])].sort(), [itens, mes]);
@@ -49,7 +65,8 @@ export function Lancamentos({ estado }: { estado: Estado }) {
   const comVencimento = lista.filter((i) => i.situacao !== 'sem-vencimento');
   const semVencimento = lista.filter((i) => i.situacao === 'sem-vencimento');
   const total = lista.reduce((s, i) => s + valorEfetivo(i.lancamento), 0);
-  const temFiltro = texto !== '' || todosMeses || categoriaId !== '' || situacao !== '' || tipo !== '' || meioId !== '';
+  const qtdFiltros = [categoriaId, situacao, tipo, meioId].filter((x) => x !== '').length;
+  const temFiltro = texto !== '' || todosMeses || qtdFiltros > 0;
 
   function limpar() {
     setTexto('');
@@ -124,37 +141,39 @@ export function Lancamentos({ estado }: { estado: Estado }) {
             </option>
           ))}
         </select>
-        <select aria-label="Categoria" class={categoriaId ? 'ativo' : ''} value={categoriaId} onChange={(e) => setCategoriaId(e.currentTarget.value)}>
-          <option value="">Categoria</option>
-          {estado.categorias.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.nome}
-            </option>
-          ))}
-        </select>
-        <select aria-label="Situação" class={situacao ? 'ativo' : ''} value={situacao} onChange={(e) => setSituacao(e.currentTarget.value as Situacao | '')}>
-          <option value="">Situação</option>
-          {SITUACOES.map(([valor, rotulo]) => (
-            <option key={valor} value={valor}>
-              {rotulo}
-            </option>
-          ))}
-        </select>
-        <select aria-label="Tipo" class={tipo ? 'ativo' : ''} value={tipo} onChange={(e) => setTipo(e.currentTarget.value as TipoDespesa | '')}>
-          <option value="">Tipo</option>
-          <option value="avulsa">Avulsas</option>
-          <option value="parcelada">Parceladas</option>
-          <option value="recorrente">Recorrentes</option>
-        </select>
-        <select aria-label="Meio de pagamento" class={meioId ? 'ativo' : ''} value={meioId} onChange={(e) => setMeioId(e.currentTarget.value)}>
-          <option value="">Pagamento</option>
-          {estado.meios.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.nome}
-            </option>
-          ))}
-        </select>
+        <button type="button" class={`chip${maisFiltros ? ' chip-aberto' : ''}`} aria-expanded={maisFiltros} aria-controls="mais-filtros" onClick={() => setMaisFiltros(!maisFiltros)}>
+          <IconAdjustmentsHorizontal size={18} aria-hidden="true" />
+          {qtdFiltros > 0 ? `Filtros (${qtdFiltros})` : 'Filtros'}
+        </button>
+        {temFiltro && (
+          <button type="button" class="chip" onClick={limpar}>
+            Limpar
+          </button>
+        )}
       </div>
+      <Chips<Situacao | ''> rotulo="Situação" opcoes={OPCOES_SITUACAO} valor={situacao} aoMudar={setSituacao} />
+      {estado.meios.length > 0 && (
+        <Chips
+          rotulo="Meio de pagamento"
+          opcoes={[
+            { valor: '', rotulo: 'Todos os meios' },
+            ...estado.meios.map((m) => ({ valor: m.id, rotulo: m.nome, antes: <LogoMeio meio={m} tamanho={22} /> })),
+          ]}
+          valor={meioId}
+          aoMudar={setMeioId}
+        />
+      )}
+      {maisFiltros && (
+        <div id="mais-filtros">
+          <Chips
+            rotulo="Categoria"
+            opcoes={[{ valor: '', rotulo: 'Todas as categorias' }, ...estado.categorias.map((c) => ({ valor: c.id, rotulo: c.nome, antes: <span class="chip-cor" style={{ background: c.cor }} /> }))]}
+            valor={categoriaId}
+            aoMudar={setCategoriaId}
+          />
+          <Chips<TipoDespesa | ''> rotulo="Tipo" opcoes={OPCOES_TIPO} valor={tipo} aoMudar={setTipo} />
+        </div>
+      )}
 
       {lista.length === 0 ? (
         estado.lancamentos.length === 0 ? (

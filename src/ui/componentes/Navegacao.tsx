@@ -5,6 +5,7 @@ type Grupo = 'inicio' | 'lancamentos' | 'nova' | 'despesas' | 'ajustes';
 
 function grupoDaRota(tela: Rota['tela']): Grupo {
   if (tela === 'despesa' || tela === 'editar') return 'despesas';
+  if (tela === 'analise') return 'inicio';
   if (tela === 'categorias' || tela === 'marcas' || tela === 'meios' || tela === 'backup' || tela === 'dados') return 'ajustes';
   return tela;
 }

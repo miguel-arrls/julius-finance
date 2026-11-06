@@ -21,16 +21,37 @@ import { SeletorMes } from '../componentes/SeletorMes';
 import { usarToast } from '../componentes/Toast';
 import { usarBase, usarHoje, usarMes } from '../contexto';
 import type { Estado } from '../estado';
+import { caminho, type FiltrosRota } from '../rota';
 import { plural } from '../textos';
 
 const MENSAGEM_FALHA = 'Não foi possível marcar como paga. Tente de novo.';
 
-function Metrica({ rotulo, valor, destaque = false, classe = '' }: { rotulo: string; valor: Centavos; destaque?: boolean; classe?: string }) {
-  return (
-    <div class={`metrica${destaque ? ' metrica-destaque' : ''}`}>
+function Metrica({
+  rotulo,
+  valor,
+  destaque = false,
+  classe = '',
+  href,
+}: {
+  rotulo: string;
+  valor: Centavos;
+  destaque?: boolean;
+  classe?: string;
+  href?: string;
+}) {
+  const css = `metrica${destaque ? ' metrica-destaque' : ''}`;
+  const conteudo = (
+    <>
       <span class="metrica-rotulo">{rotulo}</span>
       <span class={`metrica-valor ${classe}`}>{formatarReais(valor)}</span>
-    </div>
+    </>
+  );
+  return href ? (
+    <a class={`${css} metrica-link`} href={href}>
+      {conteudo}
+    </a>
+  ) : (
+    <div class={css}>{conteudo}</div>
   );
 }
 
@@ -50,6 +71,7 @@ export function Inicio({ estado }: { estado: Estado }) {
   const lembrarBackup = estado.despesas.length > 0 && backupAtrasado(estado.config?.ultimoBackupEm, hoje);
   const categorias = new Map(estado.categorias.map((c) => [c.id, c]));
   const maiorCategoria = resumo.porCategoria[0]?.total || 1;
+  const lista = (f: FiltrosRota) => caminho({ tela: 'lancamentos', filtros: { mes, ...f } });
 
   async function pagar(item: ItemLista) {
     try {
@@ -80,11 +102,16 @@ export function Inicio({ estado }: { estado: Estado }) {
     <>
       <SeletorMes />
       <section class="cartoes-resumo" aria-label="Resumo do mês">
-        <Metrica rotulo="Total do mês" valor={resumo.total} destaque />
-        <Metrica rotulo="Pago" valor={resumo.pago} classe="positivo" />
+        <Metrica rotulo="Total do mês" valor={resumo.total} destaque href={lista({})} />
+        <Metrica rotulo="Pago" valor={resumo.pago} classe="positivo" href={lista({ situacao: 'paga' })} />
         <Metrica rotulo="Pendente" valor={resumo.pendente} />
         {resumo.atrasado > 0 && (
-          <Metrica rotulo={plural(resumo.qtdAtrasadas, 'atrasada', 'atrasadas')} valor={resumo.atrasado} classe="negativo" />
+          <Metrica
+            rotulo={plural(resumo.qtdAtrasadas, 'atrasada', 'atrasadas')}
+            valor={resumo.atrasado}
+            classe="negativo"
+            href={lista({ situacao: 'atrasada' })}
+          />
         )}
       </section>
 
@@ -121,7 +148,9 @@ export function Inicio({ estado }: { estado: Estado }) {
             return (
               <section class="cartao" key={`${f.meioId}-${f.vencimento}`} aria-label={`Fatura ${meio?.nome ?? ''}`}>
                 <div class="barra-topo">
-                  <h2>Fatura {meio?.nome}</h2>
+                  <h2>
+                    <a href={lista({ meioPagamentoId: f.meioId })}>Fatura {meio?.nome}</a>
+                  </h2>
                   <strong>{formatarReais(f.total)}</strong>
                 </div>
                 <p class="texto-suave">
@@ -153,13 +182,15 @@ export function Inicio({ estado }: { estado: Estado }) {
                   const largura = Math.max(4, Math.round((c.total / maiorCategoria) * 100));
                   return (
                     <li key={c.categoriaId}>
-                      <div class="barra-topo">
-                        <span>{cat?.nome ?? 'Sem categoria'}</span>
-                        <span>{formatarReais(c.total)}</span>
-                      </div>
-                      <div class="barra-trilho">
-                        <div class="barra-preenchida" style={{ width: `${largura}%`, background: cat?.cor ?? '#57534E' }} />
-                      </div>
+                      <a class="barra-link" href={lista({ categoriaId: c.categoriaId })}>
+                        <span class="barra-topo">
+                          <span>{cat?.nome ?? 'Sem categoria'}</span>
+                          <span>{formatarReais(c.total)}</span>
+                        </span>
+                        <span class="barra-trilho">
+                          <span class="barra-preenchida" style={{ width: `${largura}%`, background: cat?.cor ?? '#57534E' }} />
+                        </span>
+                      </a>
                     </li>
                   );
                 })}

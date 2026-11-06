@@ -49,7 +49,7 @@ describe('Lançamentos', () => {
   it('filtra por situação', async () => {
     await popular();
     abrir();
-    fireEvent.change(await screen.findByLabelText('Situação'), { target: { value: 'atrasada' } });
+    fireEvent.click(within(await screen.findByRole('radiogroup', { name: 'Situação' })).getByRole('radio', { name: 'Atrasadas' }));
     expect(screen.getByText('Açaí da esquina')).toBeInTheDocument();
     expect(screen.queryByText('Academia')).toBeNull();
   });
@@ -102,7 +102,9 @@ describe('Lançamentos', () => {
   it('filtra por categoria', async () => {
     await popular();
     abrir();
-    fireEvent.change(await screen.findByLabelText('Categoria'), { target: { value: 'cat-saude' } });
+    fireEvent.click(await screen.findByRole('button', { name: 'Filtros' }));
+    fireEvent.click(within(screen.getByRole('radiogroup', { name: 'Categoria' })).getByRole('radio', { name: 'Saúde' }));
+    expect(screen.getByRole('button', { name: 'Filtros (1)' })).toBeInTheDocument();
     expect(screen.getByText('Academia')).toBeInTheDocument();
     expect(screen.queryByText('Açaí da esquina')).toBeNull();
     expect(screen.queryByText('Celular')).toBeNull();
@@ -111,7 +113,8 @@ describe('Lançamentos', () => {
   it('filtra por tipo', async () => {
     await popular();
     abrir();
-    fireEvent.change(await screen.findByLabelText('Tipo'), { target: { value: 'parcelada' } });
+    fireEvent.click(await screen.findByRole('button', { name: 'Filtros' }));
+    fireEvent.click(screen.getByRole('radio', { name: 'Parceladas' }));
     expect(screen.getByText('Celular')).toBeInTheDocument();
     expect(screen.queryByText('Academia')).toBeNull();
     expect(screen.queryByText('Açaí da esquina')).toBeNull();
@@ -123,7 +126,7 @@ describe('Lançamentos', () => {
     await repo.salvarDespesa(base, avulsa({ id: 'a', descricao: 'Açaí da esquina', vencimento: '2026-10-05', meioPagamentoId: pix.id }), { hoje: HOJE });
     await repo.salvarDespesa(base, avulsa({ id: 'b', descricao: 'Academia', vencimento: '2026-10-20' }), { hoje: HOJE });
     abrir();
-    fireEvent.change(await screen.findByLabelText('Meio de pagamento'), { target: { value: pix.id } });
+    fireEvent.click(within(await screen.findByRole('radiogroup', { name: 'Meio de pagamento' })).getByRole('radio', { name: 'PIX' }));
     expect(screen.getByText('Açaí da esquina')).toBeInTheDocument();
     expect(screen.queryByText('Academia')).toBeNull();
   });
@@ -154,5 +157,27 @@ describe('Lançamentos', () => {
     fireEvent.click(screen.getByRole('button', { name: /Exportar CSV/ }));
     await waitFor(() => expect(chamada).toHaveBeenCalledTimes(2));
     expect(chamada.mock.calls[1]?.[0]).toBe('julius-lancamentos-todos.csv');
+  });
+});
+
+describe('Lançamentos: filtros vindos da rota', () => {
+  it('abre já filtrada e com os filtros extras visíveis', async () => {
+    await popular();
+    renderizar(<ComEstado filho={(e) => <Lancamentos estado={e} filtros={{ categoriaId: 'cat-saude', situacao: 'pendente' }} />} />, base);
+    expect(await screen.findByText('Academia')).toBeInTheDocument();
+    expect(screen.queryByText('Açaí da esquina')).toBeNull();
+    expect(screen.getByRole('radio', { name: 'Saúde' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('radio', { name: 'Pendentes' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('button', { name: 'Filtros (2)' })).toHaveAttribute('aria-expanded', 'true');
+    fireEvent.click(screen.getByRole('button', { name: 'Limpar' }));
+    expect(screen.getByText('Açaí da esquina')).toBeInTheDocument();
+  });
+
+  it('o mês da rota vira o mês da tela', async () => {
+    await popular();
+    renderizar(<ComEstado filho={(e) => <Lancamentos estado={e} filtros={{ mes: '2026-11' }} />} />, base);
+    await waitFor(() => expect(screen.getByLabelText('Mês')).toHaveValue('2026-11'));
+    expect(screen.getByText('Celular')).toBeInTheDocument();
+    expect(screen.queryByText('Academia')).toBeNull();
   });
 });

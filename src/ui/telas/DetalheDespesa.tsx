@@ -238,6 +238,9 @@ export function DetalheDespesa({ estado, id }: { estado: Estado; id: string }) {
         <a class="botao" href={caminho({ tela: 'editar', id })}>
           Editar
         </a>
+        <a class="botao" href={caminho({ tela: 'nova', de: id })}>
+          Duplicar
+        </a>
         {situacaoRecorrencia === 'ativa' && (
           <button type="button" class="botao" onClick={confirmarPausa}>
             Pausar
