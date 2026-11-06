@@ -1,7 +1,8 @@
-import { IconAlertTriangle, IconDownload } from '@tabler/icons-preact';
+import { IconAlertTriangle, IconChartBar, IconChevronRight, IconDownload } from '@tabler/icons-preact';
 import { useMemo } from 'preact/hooks';
 import { desfazerPagamento, desfazerVariosPagamentos, marcarPaga, marcarVariosPagos } from '../../dados/repositorio';
-import { formatarData, formatarMes, formatarMesCurto } from '../../dominio/datas';
+import { formatarData, formatarMes, formatarMesCurto, somarMesesAoMes } from '../../dominio/datas';
+import { compararComAnterior } from '../../dominio/insights';
 import { formatarReais } from '../../dominio/dinheiro';
 import {
   backupAtrasado,
@@ -22,7 +23,7 @@ import { usarToast } from '../componentes/Toast';
 import { usarBase, usarHoje, usarMes } from '../contexto';
 import type { Estado } from '../estado';
 import { caminho, type FiltrosRota } from '../rota';
-import { plural } from '../textos';
+import { formatarPercentual, formatarVariacao, plural } from '../textos';
 
 const MENSAGEM_FALHA = 'Não foi possível marcar como paga. Tente de novo.';
 
@@ -72,6 +73,16 @@ export function Inicio({ estado }: { estado: Estado }) {
   const categorias = new Map(estado.categorias.map((c) => [c.id, c]));
   const maiorCategoria = resumo.porCategoria[0]?.total || 1;
   const lista = (f: FiltrosRota) => caminho({ tela: 'lancamentos', filtros: { mes, ...f } });
+  const comparacao = compararComAnterior(itens, mes);
+  const maiorAumento = comparacao.porCategoria.find((c) => c.variacao > 0);
+  const resumoInsight = [
+    comparacao.percentual !== null
+      ? `${formatarPercentual(comparacao.percentual)} vs ${formatarMesCurto(somarMesesAoMes(mes, -1))}`
+      : 'Ver a análise do mês',
+    maiorAumento && `maior aumento: ${categorias.get(maiorAumento.categoriaId)?.nome ?? 'Sem categoria'} (${formatarVariacao(maiorAumento.variacao)})`,
+  ]
+    .filter(Boolean)
+    .join(' · ');
 
   async function pagar(item: ItemLista) {
     try {
@@ -114,6 +125,14 @@ export function Inicio({ estado }: { estado: Estado }) {
           />
         )}
       </section>
+
+      {doMes.length > 0 && (
+        <a class="aviso aviso-insight" href="#/analise">
+          <IconChartBar aria-hidden="true" />
+          <span>{resumoInsight}</span>
+          <IconChevronRight class="aviso-seta" aria-hidden="true" />
+        </a>
+      )}
 
       {aConfirmar > 0 && (
         <a class="aviso aviso-atencao" href="#/despesas">

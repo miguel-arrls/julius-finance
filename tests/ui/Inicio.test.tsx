@@ -141,3 +141,15 @@ describe('Início: o resumo leva à lista filtrada', () => {
     expect(screen.getByRole('link', { name: `Fatura ${CARTAO.nome}` })).toHaveAttribute('href', `#/lancamentos?mes=2026-10&meio=${CARTAO.id}`);
   });
 });
+
+describe('Início: resumo de insights', () => {
+  it('leva à Análise; sem mês anterior, convida a ver a análise', async () => {
+    await popular();
+    abrir();
+    const link = (await screen.findAllByRole('link')).find((a) => a.getAttribute('href') === '#/analise')!;
+    expect(link).toBeDefined();
+    // A cobrança de 10/09 vence em 07/10 no cartão: setembro fica vazio e não há percentual.
+    expect(link.textContent).toMatch(/^Ver a análise do mês/);
+    expect(link.textContent).toContain('maior aumento: Moradia');
+  });
+});

@@ -4,6 +4,7 @@ import type { EstadoRecorrencia } from '../dominio/recorrencias';
 import type {
   AcaoHistorico,
   CampoAConfirmar,
+  Centavos,
   Despesa,
   Frequencia,
   Lancamento,
@@ -129,4 +130,17 @@ export function resumoDespesa(d: Despesa, lancamentos: Lancamento[]): string {
     return `${faixa} de ${formatarReais(valor)} · ${plural(pagas, 'paga', 'pagas')}`;
   }
   return `${formatarReais(d.valor)} · ${d.vencimento ? `vence ${formatarData(d.vencimento)}` : 'vencimento a confirmar'}`;
+}
+
+const PERCENTUAL = new Intl.NumberFormat('pt-BR', { style: 'percent', maximumFractionDigits: 0, signDisplay: 'exceptZero' });
+
+/** 0.234 → "+23%"; -0.05 → "-5%"; 0 → "0%". Só para exibição: os cálculos ficam em centavos. */
+export function formatarPercentual(fracao: number): string {
+  return PERCENTUAL.format(fracao);
+}
+
+/** Variação em reais com sinal: 1500 → "+R$ 15,00"; -1500 → "-R$ 15,00". */
+export function formatarVariacao(c: Centavos): string {
+  if (c === 0) return formatarReais(0);
+  return `${c > 0 ? '+' : '-'}${formatarReais(Math.abs(c))}`;
 }
