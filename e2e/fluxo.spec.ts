@@ -56,28 +56,42 @@ test('parcelada: cadastrar, pagar, exportar, apagar tudo e importar de volta', a
   await expect(page.getByRole('button', { name: 'Desfazer pagamento de Parcela 1/3' })).toBeVisible();
 });
 
-test('deslizar uma linha para a esquerda marca como paga', async ({ page }) => {
+test('cartão novo no formulário → Início → categoria → lista filtrada → deslizar → pagar', async ({ page }) => {
   await comecarDoZero(page);
+  const agora = new Date();
+  const mes = `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, '0')}`;
 
   await page.getByRole('link', { name: 'Nova despesa' }).click();
   await page.getByLabel('Descrição').fill('Conta teste');
   await page.getByLabel('Categoria').selectOption('cat-moradia');
-  await page.getByLabel('Valor').fill('10,00');
-  await page.getByLabel('Vencimento').fill('2030-01-10');
+  await page.getByRole('button', { name: 'Novo cartão' }).click();
+  const folha = page.getByRole('dialog', { name: 'Novo cartão' });
+  await folha.getByRole('radio', { name: 'Inter' }).click();
+  await folha.getByLabel('Dia de fechamento').fill('2');
+  await folha.getByLabel('Dia de vencimento').fill('7');
+  await folha.getByRole('button', { name: 'Salvar' }).click();
+  await expect(folha).toBeHidden();
+  await expect(page.getByRole('radio', { name: /^Inter/ })).toHaveAttribute('aria-checked', 'true');
+  await page.getByLabel('Valor', { exact: true }).fill('10,00');
+  await page.getByLabel('Vencimento').fill(`${mes}-28`);
   await page.getByRole('button', { name: 'Salvar despesa' }).click();
   await expect(page.getByRole('heading', { name: 'Conta teste' })).toBeVisible();
 
-  await page.getByRole('link', { name: 'Lançamentos' }).click();
-  await page.getByLabel('Mês').selectOption('');
+  await page.getByRole('link', { name: 'Início' }).click();
+  await page.getByRole('link', { name: /^Moradia/ }).click();
+  await expect(page.getByRole('radio', { name: 'Moradia' })).toHaveAttribute('aria-checked', 'true');
+
   const linha = page.getByRole('listitem').filter({ hasText: 'Conta teste' });
+  await expect(linha).toContainText('Inter');
   const caixa = (await linha.boundingBox())!;
   const y = caixa.y + caixa.height / 2;
   await page.mouse.move(caixa.x + caixa.width - 60, y);
   await page.mouse.down();
   await page.mouse.move(caixa.x + 20, y, { steps: 8 });
   await page.mouse.up();
+  await expect(page.getByRole('heading', { name: 'Lançamentos' })).toBeVisible(); // não navegou nem pagou
+  await linha.getByRole('group', { name: 'Ações de Conta teste' }).getByRole('button', { name: 'Pagar' }).click();
   await expect(page.getByText('Conta teste marcada como paga')).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Lançamentos' })).toBeVisible(); // não navegou
 });
 
 test('nova despesa: campos lado a lado começam na mesma altura, mesmo com rótulo quebrado', async ({ page }) => {
