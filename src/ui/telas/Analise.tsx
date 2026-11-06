@@ -73,9 +73,6 @@ export function Analise({ estado }: { estado: Estado }) {
 
   return (
     <>
-      <a href="#/inicio" class="voltar">
-        ‹ Início
-      </a>
       <SeletorMes />
 
       <section class="cartao" aria-labelledby="titulo-comparacao">

@@ -7,7 +7,7 @@ import { filtrar } from '../../src/dominio/filtros';
 import { detalhar } from '../../src/dominio/resumo';
 import { Lancamentos } from '../../src/ui/telas/Lancamentos';
 import * as arquivo from '../../src/ui/arquivo';
-import { avulsa, parcelada } from '../fabricas';
+import { avulsa, CARTAO, parcelada } from '../fabricas';
 import { ComEstado, HOJE, novaBase, renderizar } from './auxiliar';
 
 vi.mock('../../src/ui/arquivo', async (importOriginal) => ({
@@ -179,5 +179,20 @@ describe('Lançamentos: filtros vindos da rota', () => {
     await waitFor(() => expect(screen.getByLabelText('Mês')).toHaveValue('2026-11'));
     expect(screen.getByText('Celular')).toBeInTheDocument();
     expect(screen.queryByText('Academia')).toBeNull();
+  });
+});
+
+describe('Lançamentos: fatura do cartão filtrado', () => {
+  it('filtrando por cartão de crédito mostra a fatura do mês e paga só ela', async () => {
+    await repo.salvarMeio(base, CARTAO, HOJE);
+    // Compra em 01/10 no cartão (fecha 2, vence 7) → vence 07/10.
+    await repo.salvarDespesa(base, avulsa({ id: 'c', descricao: 'Livro', valor: 5000, dataCompra: '2026-10-01', vencimento: '2026-10-07', meioPagamentoId: CARTAO.id }), { hoje: HOJE });
+    await repo.salvarDespesa(base, avulsa({ id: 'd', descricao: 'Padaria', valor: 1000, vencimento: '2026-10-07' }), { hoje: HOJE });
+    renderizar(<ComEstado filho={(e) => <Lancamentos estado={e} filtros={{ meioPagamentoId: CARTAO.id }} />} />, base);
+    const resumo = await screen.findByRole('region', { name: `Fatura ${CARTAO.nome}` });
+    expect(resumo.textContent).toContain('vence 07/10');
+    fireEvent.click(within(resumo).getByRole('button', { name: 'Pagar fatura' }));
+    await waitFor(async () => expect((await base.lancamentos.get('c#1'))!.pagoEm).toBe(HOJE));
+    expect((await base.lancamentos.get('d#1'))!.pagoEm).toBeUndefined();
   });
 });

@@ -48,4 +48,17 @@ Critérios de sucesso:
 - Claro e escuro, contraste AA nos dois temas, transições curtas que respeitam
   `prefers-reduced-motion`.
 
-O detalhamento da navegação e das telas desta direção é decidido com o usuário antes da aplicação.
+### 3.1 Detalhamento aprovado em 06/11/2026
+
+- **Navegação:** abas Início, Lançamentos, Despesas e Análise; botão redondo flutuante para nova despesa;
+  Ajustes numa engrenagem no topo do Início (no PC, Ajustes continua também na barra lateral). A aba
+  "Cartões" da prévia ficou de fora: os cartões aparecem no carrossel do Início e o cadastro continua em
+  Ajustes → Meios de pagamento.
+- **Alerta de conta atrasada no Início** (veio da direção Painel): até 2 atrasadas, um alerta por conta
+  com o botão Pagar; a partir de 3, um alerta só com a quantidade e o total, que leva à lista filtrada
+  por atrasadas em todos os meses (`#/lancamentos?mes=todos&situacao=atrasada`).
+- **Carrossel:** cada cartão de crédito mostra a fatura que vence no mês (a do dia de vencimento do cartão
+  tem prioridade sobre vencimentos digitados à mão), fechamento, vencimento e "Pagar fatura".
+- **Nada sai do Início:** Pago, Pendente, atrasadas, próximos vencimentos, gastos por categoria, próximos
+  meses e os avisos continuam; o bloco "Fatura do cartão" passou para dentro do carrossel.
+- **Formulário:** o valor fica em destaque no topo; o tipo continua "Recorrente" (a prévia dizia "Fixa").

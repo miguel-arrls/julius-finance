@@ -4,7 +4,7 @@ import type { Filtros } from '../dominio/filtros';
 import type { Situacao, TipoDespesa } from '../dominio/tipos';
 
 /** Filtros que a lista aceita pela rota (o texto da busca fica só na tela). */
-export type FiltrosRota = Omit<Filtros, 'texto'>;
+export type FiltrosRota = Omit<Filtros, 'texto'> & { todosMeses?: true };
 
 export type Rota =
   | { tela: 'inicio' }
@@ -33,6 +33,7 @@ function lerFiltros(q: URLSearchParams): FiltrosRota | undefined {
   const f: FiltrosRota = {};
   const mes = q.get('mes');
   if (ehMesISO(mes)) f.mes = mes;
+  else if (mes === 'todos') f.todosMeses = true;
   const situacao = q.get('situacao');
   if (SITUACOES.includes(situacao as Situacao)) f.situacao = situacao as Situacao;
   const tipo = q.get('tipo');
@@ -85,7 +86,7 @@ export function caminho(r: Rota): string {
   if (r.tela === 'lancamentos') {
     const f = r.filtros ?? {};
     return comConsulta('#/lancamentos', [
-      ['mes', f.mes],
+      ['mes', f.todosMeses ? 'todos' : f.mes],
       ['situacao', f.situacao],
       ['categoria', f.categoriaId],
       ['meio', f.meioPagamentoId],

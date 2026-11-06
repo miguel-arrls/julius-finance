@@ -67,3 +67,22 @@ describe('estilos: alvos de toque e fonte', () => {
     expect(regra('.filtros select')['font-size']).toBe('16px');
   });
 });
+
+describe('estilos: contraste do visual Carteira (WCAG AA, 4,5:1)', () => {
+  const pares: [string, string, string][] = [
+    ['texto secundário sobre o fundo', '--texto-2', '--fundo'],
+    ['texto secundário sobre a superfície', '--texto-2', '--superficie'],
+    ['botão Pagar do alerta', '--sobre-perigo', '--perigo'],
+    ['texto do alerta sobre o fundo dele', '--perigo', '--perigo-suave'],
+    ['pílula pendente', '--pendente-texto', '--acento-suave'],
+    ['botão primário', '--acento-texto', '--acento'],
+  ];
+  for (const [nomeTema, tema] of [
+    ['claro', temaClaro],
+    ['escuro', temaEscuro],
+  ] as const) {
+    it.each(pares)(`%s no tema ${nomeTema}`, (_nome, frente, fundo) => {
+      expect(contraste(cor(`var(${frente})`, tema), cor(`var(${fundo})`, tema))).toBeGreaterThanOrEqual(4.5);
+    });
+  }
+});

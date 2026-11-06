@@ -1,7 +1,7 @@
 import { IconPlus } from '@tabler/icons-preact';
 import type { MeioPagamento } from '../../dominio/tipos';
 import { ROTULO_MEIO } from '../textos';
-import { LogoMeio } from './Logo';
+import { corDoMeio, LogoMeio } from './Logo';
 
 /** Escolha do meio de pagamento em cartões tocáveis, com "Não informado" e atalho para cadastrar um novo. */
 export function SeletorMeio({
@@ -26,7 +26,15 @@ export function SeletorMeio({
             <span class="opcao-meio-nome">Não informado</span>
           </button>
           {meios.map((m) => (
-            <button key={m.id} type="button" role="radio" aria-checked={valor === m.id} class="opcao-meio" onClick={() => aoEscolher(m.id)}>
+            <button
+              key={m.id}
+              type="button"
+              role="radio"
+              aria-checked={valor === m.id}
+              class="opcao-meio opcao-meio-cor"
+              style={{ backgroundColor: corDoMeio(m) }}
+              onClick={() => aoEscolher(m.id)}
+            >
               <LogoMeio meio={m} tamanho={32} />
               <span class="opcao-meio-textos">
                 <span class="opcao-meio-nome">{m.nome}</span>

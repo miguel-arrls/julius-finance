@@ -1,7 +1,7 @@
 import { useRef, useState } from 'preact/hooks';
 import { salvarDespesa, salvarMarca } from '../../dados/repositorio';
 import { formatarData, formatarMes, formatarMesCurto, mesDe, somarMesesAoMes } from '../../dominio/datas';
-import { formatarReais } from '../../dominio/dinheiro';
+import { dividirEmParcelas, formatarReais, lerReais } from '../../dominio/dinheiro';
 import { diferencaParcelas } from '../../dominio/parcelas';
 import { ErroDominio, type Despesa, type Lancamento, type MeioPagamento, type TipoDespesa } from '../../dominio/tipos';
 import { Campo } from '../componentes/Campo';
@@ -50,13 +50,41 @@ function CampoDataCompra({ v, erros, alterar }: PropsCampos) {
   );
 }
 
+/** O valor principal em destaque no topo: "Valor" (avulsa e recorrente) ou "Valor total" (parcelada). */
+function ValorDestaque({ v, erros, alterar }: PropsCampos) {
+  const parcelada = v.tipo === 'parcelada';
+  const id = parcelada ? 'f-valor-total' : 'f-valor';
+  const campo = parcelada ? 'valorTotal' : 'valor';
+  const erro = parcelada ? erros.valorTotal : erros.valor;
+  const total = lerReais(parcelada ? v.valorTotal : v.valor);
+  const n = Number(v.numParcelas);
+  const parcela = lerReais(v.valorParcela) ?? (total && Number.isInteger(n) && n > 1 ? dividirEmParcelas(total, n)[0] : null);
+  const dica = parcelada && parcela && Number.isInteger(n) && n > 1 ? `${n}× de ${formatarReais(parcela)}` : '';
+  return (
+    <div class={`valor-destaque${erro ? ' campo-com-erro' : ''}`}>
+      <label for={id} class="campo-rotulo">
+        {parcelada ? 'Valor total' : 'Valor'}
+      </label>
+      <div class="valor-destaque-linha">
+        <span class="valor-destaque-moeda" aria-hidden="true">
+          R$
+        </span>
+        <input id={id} inputMode="decimal" placeholder="0,00" value={v[campo]} onInput={(e) => alterar(campo, e.currentTarget.value)} />
+      </div>
+      {dica && !erro && <p class="campo-dica">{dica}</p>}
+      {erro && (
+        <p class="campo-erro" role="alert">
+          {erro}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function CamposAvulsa(p: PropsCampos) {
   const { v, erros, alterar } = p;
   return (
     <>
-      <Campo id="f-valor" rotulo="Valor" erro={erros.valor}>
-        <input id="f-valor" inputMode="decimal" placeholder="0,00" value={v.valor} onInput={(e) => alterar('valor', e.currentTarget.value)} />
-      </Campo>
       <div class="duas-colunas">
         <CampoDataCompra {...p} />
         <Campo id="f-vencimento" rotulo="Vencimento" erro={erros.vencimento}>
@@ -77,21 +105,18 @@ function CamposParcelada(p: PropsCampos) {
   return (
     <>
       <div class="duas-colunas">
-        <Campo id="f-valor-total" rotulo="Valor total" erro={erros.valorTotal}>
-          <input id="f-valor-total" inputMode="decimal" placeholder="0,00" value={v.valorTotal} onInput={(e) => alterar('valorTotal', e.currentTarget.value)} />
-        </Campo>
         <Campo id="f-num-parcelas" rotulo="Número de parcelas" erro={erros.numParcelas}>
           <input id="f-num-parcelas" inputMode="numeric" value={v.numParcelas} onInput={(e) => alterar('numParcelas', e.currentTarget.value)} />
         </Campo>
+        <Campo
+          id="f-valor-parcela"
+          rotulo="Valor da parcela (opcional)"
+          erro={erros.valorParcela}
+          dica="Se não for o total dividido (juros)."
+        >
+          <input id="f-valor-parcela" inputMode="decimal" placeholder="0,00" value={v.valorParcela} onInput={(e) => alterar('valorParcela', e.currentTarget.value)} />
+        </Campo>
       </div>
-      <Campo
-        id="f-valor-parcela"
-        rotulo="Valor da parcela (opcional)"
-        erro={erros.valorParcela}
-        dica="Preencha se a parcela não for o total dividido, por exemplo com juros."
-      >
-        <input id="f-valor-parcela" inputMode="decimal" placeholder="0,00" value={v.valorParcela} onInput={(e) => alterar('valorParcela', e.currentTarget.value)} />
-      </Campo>
       <div class="duas-colunas">
         <CampoDataCompra {...p} />
         <Campo id="f-primeiro-venc" rotulo="1º vencimento" erro={erros.primeiroVencimento}>
@@ -118,9 +143,6 @@ function CamposParcelada(p: PropsCampos) {
 function CamposRecorrente({ v, erros, alterar }: PropsCampos) {
   return (
     <>
-      <Campo id="f-valor" rotulo="Valor" erro={erros.valor}>
-        <input id="f-valor" inputMode="decimal" placeholder="0,00" value={v.valor} onInput={(e) => alterar('valor', e.currentTarget.value)} />
-      </Campo>
       <label class="check">
         <input type="checkbox" checked={v.valorVariavel} onChange={(e) => alterar('valorVariavel', e.currentTarget.checked)} />
         O valor muda todo mês (conta de consumo)
@@ -279,6 +301,8 @@ export function FormDespesa({ estado, id, de }: { estado: Estado; id?: string; d
           ))}
         </div>
       )}
+
+      <ValorDestaque {...props} />
 
       <Campo id="f-descricao" rotulo="Descrição" erro={erros.descricao}>
         <input id="f-descricao" value={v.descricao} autocomplete="off" onInput={(e) => alterar('descricao', e.currentTarget.value)} />

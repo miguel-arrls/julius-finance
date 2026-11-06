@@ -23,6 +23,7 @@ describe('rotas', () => {
     ['#/lancamentos?mes=2026-1&situacao=paga', { tela: 'lancamentos', filtros: { situacao: 'paga' } }],
     ['#/lancamentos?', { tela: 'lancamentos' }],
     ['#/nova?de=av1', { tela: 'nova', de: 'av1' }],
+    ['#/lancamentos?mes=todos&situacao=atrasada', { tela: 'lancamentos', filtros: { todosMeses: true, situacao: 'atrasada' } }],
     ['#/nova?de=', { tela: 'nova' }],
     ['#/inicio?mes=2026-10', { tela: 'inicio' }],
   ])('lerRota(%s)', (hash, esperado) => {

@@ -30,7 +30,8 @@ test('parcelada: cadastrar, pagar, exportar, apagar tudo e importar de volta', a
   await page.getByRole('button', { name: 'Marcar Parcela 1/3 como paga' }).click();
   await expect(page.getByRole('button', { name: 'Desfazer pagamento de Parcela 1/3' })).toBeVisible();
 
-  await page.getByRole('link', { name: 'Ajustes' }).click();
+  await page.getByRole('link', { name: 'Início' }).click();
+  await page.getByRole('link', { name: 'Ajustes' }).click(); // engrenagem no topo do Início
   await page.getByRole('link', { name: 'Backup e importação' }).click();
   const download = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Exportar backup' }).click();

@@ -13,11 +13,14 @@ export interface OpcaoChip<T extends string> {
  */
 export function Chips<T extends string>({
   rotulo,
+  classe = '',
   opcoes,
   valor,
   aoMudar,
 }: {
   rotulo: string;
+  /** Variante visual: 'chips-avatares' ou 'chips-segmentado'. */
+  classe?: string;
   opcoes: OpcaoChip<T>[];
   valor: T;
   aoMudar: (v: T) => void;
@@ -33,7 +36,7 @@ export function Chips<T extends string>({
   }
 
   return (
-    <div class="chips" role="radiogroup" aria-label={rotulo}>
+    <div class={`chips ${classe}`.trim()} role="radiogroup" aria-label={rotulo}>
       {opcoes.map((o, i) => {
         const marcado = o.valor === valor;
         // Sem nenhuma marcada (valor que não está na lista), a primeira recebe o foco do Tab.
@@ -50,7 +53,7 @@ export function Chips<T extends string>({
             onKeyDown={(e) => teclar(e, i)}
           >
             {o.antes}
-            {o.rotulo}
+            <span class="chip-rotulo">{o.rotulo}</span>
           </button>
         );
       })}

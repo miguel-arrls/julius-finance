@@ -1,11 +1,11 @@
-import { IconAdjustmentsHorizontal, IconFileSpreadsheet } from '@tabler/icons-preact';
+import { IconAdjustmentsHorizontal, IconFileSpreadsheet, IconLayoutGrid } from '@tabler/icons-preact';
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import { gerarCsv } from '../../dados/csv';
-import { desfazerPagamento, marcarPaga } from '../../dados/repositorio';
-import { formatarMesCurto } from '../../dominio/datas';
+import { desfazerPagamento, desfazerVariosPagamentos, marcarPaga, marcarVariosPagos } from '../../dados/repositorio';
+import { formatarData, formatarDataCurta, formatarMesCurto } from '../../dominio/datas';
 import { formatarReais } from '../../dominio/dinheiro';
 import { filtrar } from '../../dominio/filtros';
-import { detalhar, valorEfetivo, type ItemLista } from '../../dominio/resumo';
+import { detalhar, faturasDoMes, valorEfetivo, type Fatura, type ItemLista } from '../../dominio/resumo';
 import type { Situacao, TipoDespesa } from '../../dominio/tipos';
 import { compartilharOuBaixar } from '../arquivo';
 import { Chips, type OpcaoChip } from '../componentes/Chips';
@@ -40,7 +40,7 @@ export function Lancamentos({ estado, filtros = {} }: { estado: Estado; filtros?
   const { mes, setMes } = usarMes();
   const mostrar = usarToast();
   const [texto, setTexto] = useState('');
-  const [todosMeses, setTodosMeses] = useState(false);
+  const [todosMeses, setTodosMeses] = useState(filtros.todosMeses === true);
   const [categoriaId, setCategoriaId] = useState(filtros.categoriaId ?? '');
   const [situacao, setSituacao] = useState<Situacao | ''>(filtros.situacao ?? '');
   const [tipo, setTipo] = useState<TipoDespesa | ''>(filtros.tipo ?? '');
@@ -67,6 +67,10 @@ export function Lancamentos({ estado, filtros = {} }: { estado: Estado; filtros?
   const total = lista.reduce((s, i) => s + valorEfetivo(i.lancamento), 0);
   const qtdFiltros = [categoriaId, situacao, tipo, meioId].filter((x) => x !== '').length;
   const temFiltro = texto !== '' || todosMeses || qtdFiltros > 0;
+  // Filtrando por um cartão de crédito num mês: resumo da fatura com o botão de pagar.
+  const meioDoFiltro = estado.meios.find((m) => m.id === meioId);
+  const faturasDoFiltro = meioDoFiltro?.tipo === 'credito' && !todosMeses ? faturasDoMes(itens, mes).filter((f) => f.meioId === meioId) : [];
+  const faturaDoFiltro = faturasDoFiltro.find((f) => !f.pago) ?? faturasDoFiltro[0];
 
   function limpar() {
     setTexto('');
@@ -100,8 +104,21 @@ export function Lancamentos({ estado, filtros = {} }: { estado: Estado; filtros?
     }
   }
 
+  async function pagarFatura(f: Fatura) {
+    const ids = f.idsAbertos;
+    try {
+      await marcarVariosPagos(base, ids, hoje);
+      mostrar(`Fatura de ${formatarData(f.vencimento)} marcada como paga`, {
+        rotulo: 'Desfazer',
+        executar: () => void desfazerVariosPagamentos(base, ids),
+      });
+    } catch {
+      mostrar(MENSAGEM_FALHA);
+    }
+  }
+
   const linhas = (xs: ItemLista[]) => (
-    <ul class="lista">
+    <ul class="lista lista-separada">
       {xs.map((i) => (
         <LinhaLancamento key={i.lancamento.id} item={i} onPagar={(x) => void pagar(x)} />
       ))}
@@ -151,17 +168,43 @@ export function Lancamentos({ estado, filtros = {} }: { estado: Estado; filtros?
           </button>
         )}
       </div>
-      <Chips<Situacao | ''> rotulo="Situação" opcoes={OPCOES_SITUACAO} valor={situacao} aoMudar={setSituacao} />
       {estado.meios.length > 0 && (
         <Chips
           rotulo="Meio de pagamento"
+          classe="chips-avatares"
           opcoes={[
-            { valor: '', rotulo: 'Todos os meios' },
-            ...estado.meios.map((m) => ({ valor: m.id, rotulo: m.nome, antes: <LogoMeio meio={m} tamanho={22} /> })),
+            {
+              valor: '',
+              rotulo: 'Todos',
+              antes: (
+                <span class="avatar-todos" aria-hidden="true">
+                  <IconLayoutGrid size={22} />
+                </span>
+              ),
+            },
+            ...estado.meios.map((m) => ({ valor: m.id, rotulo: m.nome, antes: <LogoMeio meio={m} tamanho={48} /> })),
           ]}
           valor={meioId}
           aoMudar={setMeioId}
         />
+      )}
+      <Chips<Situacao | ''> rotulo="Situação" classe="chips-segmentado" opcoes={OPCOES_SITUACAO} valor={situacao} aoMudar={setSituacao} />
+      {faturaDoFiltro && meioDoFiltro && (
+        <section class="resumo-fatura" aria-label={`Fatura ${meioDoFiltro.nome}`}>
+          <span class="resumo-fatura-textos">
+            <span class="texto-suave">
+              Fatura {meioDoFiltro.nome} · vence {formatarDataCurta(faturaDoFiltro.vencimento)}
+            </span>
+            <strong>{formatarReais(faturaDoFiltro.total)}</strong>
+          </span>
+          {faturaDoFiltro.pago ? (
+            <span class="pilula pilula-paga">Fatura paga</span>
+          ) : (
+            <button type="button" class="botao botao-pilula" onClick={() => void pagarFatura(faturaDoFiltro)}>
+              Pagar fatura
+            </button>
+          )}
+        </section>
       )}
       {maisFiltros && (
         <div id="mais-filtros">

@@ -1,4 +1,4 @@
-import { IconAlertTriangle, IconChartBar, IconChevronRight, IconDownload } from '@tabler/icons-preact';
+import { IconAlertTriangle, IconChartBar, IconChevronRight, IconDownload, IconSettings } from '@tabler/icons-preact';
 import { useMemo } from 'preact/hooks';
 import { desfazerPagamento, desfazerVariosPagamentos, marcarPaga, marcarVariosPagos } from '../../dados/repositorio';
 import { formatarData, formatarMes, formatarMesCurto, somarMesesAoMes } from '../../dominio/datas';
@@ -16,6 +16,8 @@ import {
   type ItemLista,
 } from '../../dominio/resumo';
 import type { Centavos } from '../../dominio/tipos';
+import { AlertasAtrasadas } from '../componentes/AlertasAtrasadas';
+import { CarrosselCartoes } from '../componentes/CarrosselCartoes';
 import { EstadoVazio } from '../componentes/EstadoVazio';
 import { LinhaLancamento } from '../componentes/LinhaLancamento';
 import { SeletorMes } from '../componentes/SeletorMes';
@@ -109,11 +111,61 @@ export function Inicio({ estado }: { estado: Estado }) {
     }
   }
 
+  const atrasadas = proximos.filter((i) => i.situacao === 'atrasada');
+  const anterior = somarMesesAoMes(mes, -1);
+  const maior = resumo.porCategoria[0] ? categorias.get(resumo.porCategoria[0].categoriaId) : undefined;
+
   return (
     <>
-      <SeletorMes />
-      <section class="cartoes-resumo" aria-label="Resumo do mês">
+      <div class="inicio-topo">
+        <SeletorMes />
+        <a href="#/ajustes" class="botao-icone engrenagem" aria-label="Ajustes">
+          <IconSettings aria-hidden="true" />
+        </a>
+      </div>
+
+      <section class="inicio-total" aria-label="Resumo do mês">
         <Metrica rotulo="Total do mês" valor={resumo.total} destaque href={lista({})} />
+        {comparacao.percentual !== null && (
+          <a class={`variacao ${comparacao.variacao > 0 ? 'negativo' : comparacao.variacao < 0 ? 'positivo' : ''}`} href="#/analise">
+            {formatarPercentual(comparacao.percentual)} vs {formatarMesCurto(anterior)}
+          </a>
+        )}
+      </section>
+
+      <CarrosselCartoes
+        meios={estado.meios}
+        faturas={faturas}
+        hrefDoMeio={(id) => lista({ meioPagamentoId: id })}
+        aoPagar={(f) => void pagarFatura(f)}
+      />
+
+      <AlertasAtrasadas
+        atrasadas={atrasadas}
+        hrefTodas={lista({ todosMeses: true, situacao: 'atrasada' })}
+        aoPagar={(i) => void pagar(i)}
+      />
+
+      {doMes.length > 0 && (
+        <div class="indicadores">
+          <a href="#/analise">
+            <span>vs {formatarMesCurto(anterior)}</span>
+            <strong class={comparacao.variacao > 0 ? 'negativo' : comparacao.variacao < 0 ? 'positivo' : ''}>
+              {comparacao.percentual !== null ? formatarPercentual(comparacao.percentual) : 'sem base'}
+            </strong>
+          </a>
+          <a href={lista({})}>
+            <span>Lançamentos</span>
+            <strong>{doMes.length}</strong>
+          </a>
+          <a href={resumo.porCategoria[0] ? lista({ categoriaId: resumo.porCategoria[0].categoriaId }) : lista({})}>
+            <span>Maior gasto</span>
+            <strong>{maior?.nome ?? 'Sem categoria'}</strong>
+          </a>
+        </div>
+      )}
+
+      <section class="cartoes-resumo" aria-label="Pago e pendente">
         <Metrica rotulo="Pago" valor={resumo.pago} classe="positivo" href={lista({ situacao: 'paga' })} />
         <Metrica rotulo="Pendente" valor={resumo.pendente} />
         {resumo.atrasado > 0 && (
@@ -162,30 +214,6 @@ export function Inicio({ estado }: { estado: Estado }) {
         </section>
 
         <div>
-          {faturas.map((f) => {
-            const meio = estado.meios.find((m) => m.id === f.meioId);
-            return (
-              <section class="cartao" key={`${f.meioId}-${f.vencimento}`} aria-label={`Fatura ${meio?.nome ?? ''}`}>
-                <div class="barra-topo">
-                  <h2>
-                    <a href={lista({ meioPagamentoId: f.meioId })}>Fatura {meio?.nome}</a>
-                  </h2>
-                  <strong>{formatarReais(f.total)}</strong>
-                </div>
-                <p class="texto-suave">
-                  Vence em {formatarData(f.vencimento)} · {plural(f.ids.length, 'lançamento', 'lançamentos')}
-                </p>
-                {f.pago ? (
-                  <span class="pilula pilula-paga">Fatura paga</span>
-                ) : (
-                  <button type="button" class="botao botao-largo" onClick={() => void pagarFatura(f)}>
-                    Marcar fatura como paga
-                  </button>
-                )}
-              </section>
-            );
-          })}
-
           {doMes.length === 0 ? (
             <EstadoVazio
               titulo={`Nada lançado em ${formatarMes(mes)}`}
@@ -195,7 +223,7 @@ export function Inicio({ estado }: { estado: Estado }) {
           ) : (
             <section aria-labelledby="titulo-categorias">
               <h2 id="titulo-categorias">Gastos por categoria</h2>
-              <ul class="barras">
+              <ul class="barras cartao">
                 {resumo.porCategoria.map((c) => {
                   const cat = categorias.get(c.categoriaId);
                   const largura = Math.max(4, Math.round((c.total / maiorCategoria) * 100));
@@ -221,11 +249,11 @@ export function Inicio({ estado }: { estado: Estado }) {
             <h2 id="titulo-futuros">Próximos meses</h2>
             <div class="meses-futuros">
               {futuros.map((f) => (
-                <div class="metrica metrica-pequena" key={f.mes}>
+                <a class="metrica metrica-pequena metrica-link" key={f.mes} href={caminho({ tela: 'lancamentos', filtros: { mes: f.mes } })}>
                   <span class="metrica-rotulo">{formatarMesCurto(f.mes)}</span>
                   <span class="metrica-valor">{formatarReais(f.total)}</span>
                   {f.temEstimado && <span class="texto-suave">inclui estimativas</span>}
-                </div>
+                </a>
               ))}
             </div>
           </section>
