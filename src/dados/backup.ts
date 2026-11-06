@@ -33,6 +33,7 @@ const POR_TIPO_DESPESA: Record<string, Record<string, TipoCampo>> = {
 const OPCIONAIS: Partial<Record<Tabela, Record<string, TipoCampo>>> = {
   lancamentos: { numero: 'inteiro', valorPago: 'inteiro', vencimento: 'data', pagoEm: 'data', dataCobranca: 'data' },
   despesas: { vencimento: 'data', primeiroVencimento: 'data', dataCompra: 'data', fim: 'data', valorParcela: 'inteiro' },
+  meiosPagamento: { bancoSlug: 'string', cor: 'string' },
 };
 
 export type ResultadoLeitura = { ok: true; arquivo: ArquivoBackup } | { ok: false; erro: string };

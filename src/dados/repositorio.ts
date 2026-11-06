@@ -23,6 +23,7 @@ import { VERSAO_ESQUEMA, type JuliusDB, type RegistroConfig } from './db';
 const agora = (): string => new Date().toISOString();
 const novoId = (): string => crypto.randomUUID();
 const CAMPOS_IGNORADOS = new Set(['criadaEm', 'atualizadaEm']);
+const COR_HEX = /^#[0-9a-f]{6}$/i;
 
 export interface OpcoesSalvar {
   hoje: DataISO;
@@ -330,8 +331,12 @@ export async function salvarMeio(base: JuliusDB, m: MeioPagamento, hoje: DataISO
   if (m.tipo === 'credito' && (!diaValido(m.diaFechamento) || !diaValido(m.diaVencimento))) {
     throw new ErroDominio('Informe um dia entre 1 e 31.');
   }
+  if (m.cor !== undefined && !COR_HEX.test(m.cor)) throw new ErroDominio('Cor inválida.');
+  const visual = { ...(m.bancoSlug ? { bancoSlug: m.bancoSlug } : {}), ...(m.cor ? { cor: m.cor } : {}) };
   const limpo: MeioPagamento =
-    m.tipo === 'credito' ? { ...m, nome } : { id: m.id, nome, tipo: m.tipo };
+    m.tipo === 'credito'
+      ? { id: m.id, nome, tipo: m.tipo, diaFechamento: m.diaFechamento, diaVencimento: m.diaVencimento, ...visual }
+      : { id: m.id, nome, tipo: m.tipo, ...visual };
   await base.transaction('rw', [base.meios, base.despesas, base.lancamentos], async () => {
     const anterior = await base.meios.get(m.id);
     await base.meios.put(limpo);

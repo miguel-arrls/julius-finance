@@ -21,6 +21,7 @@ async function abrir(id?: string) {
 
 const digitar = (rotulo: string, valor: string) => fireEvent.input(screen.getByLabelText(rotulo), { target: { value: valor } });
 const escolher = (rotulo: string, valor: string) => fireEvent.change(screen.getByLabelText(rotulo), { target: { value: valor } });
+const escolherMeio = (nome: string) => fireEvent.click(screen.getByRole('radio', { name: new RegExp(`^${nome}`) }));
 
 describe('FormDespesa', () => {
   it('cadastra uma despesa avulsa e abre o detalhe', async () => {
@@ -62,7 +63,7 @@ describe('FormDespesa', () => {
   it('o cartão sugere o vencimento a partir da data da compra', async () => {
     await repo.salvarMeio(base, CARTAO, HOJE);
     await abrir();
-    escolher('Meio de pagamento', CARTAO.id);
+    escolherMeio(CARTAO.nome);
     digitar('Data da compra (opcional)', '2026-10-02');
     expect(screen.getByLabelText('Vencimento')).toHaveValue('2026-11-07');
   });
@@ -108,7 +109,7 @@ describe('FormDespesa: sugestão de vencimento', () => {
   it('não sobrescreve o vencimento digitado (avulsa)', async () => {
     await abrir();
     digitar('Vencimento', '2026-12-01');
-    escolher('Meio de pagamento', CARTAO.id);
+    escolherMeio(CARTAO.nome);
     digitar('Data da compra (opcional)', '2026-10-02');
     expect(screen.getByLabelText('Vencimento')).toHaveValue('2026-12-01');
   });
@@ -117,14 +118,14 @@ describe('FormDespesa: sugestão de vencimento', () => {
     await abrir();
     fireEvent.click(screen.getByRole('radio', { name: 'Parcelada' }));
     digitar('1º vencimento', '2026-12-01');
-    escolher('Meio de pagamento', CARTAO.id);
+    escolherMeio(CARTAO.nome);
     digitar('Data da compra (opcional)', '2026-10-02');
     expect(screen.getByLabelText('1º vencimento')).toHaveValue('2026-12-01');
   });
 
   it('atualiza a sugestão quando a data da compra muda, mas respeita o que foi digitado depois', async () => {
     await abrir();
-    escolher('Meio de pagamento', CARTAO.id);
+    escolherMeio(CARTAO.nome);
     digitar('Data da compra (opcional)', '2026-10-01');
     expect(screen.getByLabelText('Vencimento')).toHaveValue('2026-10-07');
     digitar('Data da compra (opcional)', '2026-10-02');
@@ -155,5 +156,34 @@ describe('FormDespesa: edição', () => {
     digitar('Loja ou marca (opcional)', 'Padaria do Zé');
     fireEvent.click(screen.getByRole('button', { name: 'Salvar despesa' }));
     await waitFor(async () => expect((await base.despesas.get('a'))!.aConfirmar).toEqual(['vencimento']));
+  });
+});
+
+describe('FormDespesa: novo cartão sem sair do formulário', () => {
+  it('cadastra o cartão, deixa selecionado e sugere o vencimento', async () => {
+    await abrir();
+    digitar('Data da compra (opcional)', '2026-10-01');
+    fireEvent.click(screen.getByRole('button', { name: 'Novo cartão' }));
+    const folha = screen.getByRole('dialog', { name: 'Novo cartão' });
+    fireEvent.click(within(folha).getByRole('radio', { name: 'Inter' }));
+    expect(within(folha).getByLabelText('Nome')).toHaveValue('Inter');
+    fireEvent.input(within(folha).getByLabelText('Dia de fechamento'), { target: { value: '2' } });
+    fireEvent.input(within(folha).getByLabelText('Dia de vencimento'), { target: { value: '7' } });
+    fireEvent.click(within(folha).getByRole('button', { name: 'Salvar' }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(screen.getByRole('radio', { name: /^Inter/ })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByLabelText('Vencimento')).toHaveValue('2026-10-07');
+    const [meio] = await base.meios.toArray();
+    expect(meio).toMatchObject({ nome: 'Inter', tipo: 'credito', bancoSlug: 'inter', diaFechamento: 2, diaVencimento: 7 });
+  });
+
+  it('cancelar fecha a folha sem gravar', async () => {
+    await abrir();
+    fireEvent.click(screen.getByRole('button', { name: 'Novo cartão' }));
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancelar' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(await base.meios.count()).toBe(0);
+    expect(screen.getByRole('radio', { name: 'Não informado' })).toHaveAttribute('aria-checked', 'true');
   });
 });

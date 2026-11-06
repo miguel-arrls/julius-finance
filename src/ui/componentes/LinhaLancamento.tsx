@@ -4,7 +4,7 @@ import { formatarReais } from '../../dominio/dinheiro';
 import { valorEfetivo, type ItemLista } from '../../dominio/resumo';
 import { caminho } from '../rota';
 import { ROTULO_FREQUENCIA } from '../textos';
-import { Logo } from './Logo';
+import { Logo, LogoMeio } from './Logo';
 import { PilulaSituacao } from './PilulaSituacao';
 
 const DISTANCIA_DESLIZE = 70;
@@ -26,7 +26,7 @@ export function LinhaLancamento({ item, onPagar }: { item: ItemLista; onPagar?: 
   const inicio = useRef<{ x: number; y: number } | null>(null);
   const deslizou = useRef(false);
   const podePagar = onPagar !== undefined && item.situacao !== 'paga';
-  const subtitulo = [item.categoria?.nome, descreverLancamento(item)].filter(Boolean).join(' · ');
+  const subtitulo = [item.categoria?.nome, descreverLancamento(item), item.meio?.nome].filter(Boolean).join(' · ');
 
   return (
     <li
@@ -56,7 +56,14 @@ export function LinhaLancamento({ item, onPagar }: { item: ItemLista; onPagar?: 
           }
         }}
       >
-        <Logo marca={item.marca} categoria={item.categoria} rotulo={d.descricao} />
+        {item.meio?.bancoSlug ? (
+          <span class="logo-com-meio">
+            <Logo marca={item.marca} categoria={item.categoria} rotulo={d.descricao} />
+            <LogoMeio meio={item.meio} tamanho={20} />
+          </span>
+        ) : (
+          <Logo marca={item.marca} categoria={item.categoria} rotulo={d.descricao} />
+        )}
         <span class="linha-textos">
           <span class="linha-titulo">{d.descricao}</span>
           <span class="linha-sub">{subtitulo}</span>

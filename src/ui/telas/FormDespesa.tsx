@@ -3,8 +3,10 @@ import { salvarDespesa, salvarMarca } from '../../dados/repositorio';
 import { formatarData, formatarMes, formatarMesCurto, mesDe, somarMesesAoMes } from '../../dominio/datas';
 import { formatarReais } from '../../dominio/dinheiro';
 import { diferencaParcelas } from '../../dominio/parcelas';
-import { ErroDominio, type Despesa, type Lancamento, type TipoDespesa } from '../../dominio/tipos';
+import { ErroDominio, type Despesa, type Lancamento, type MeioPagamento, type TipoDespesa } from '../../dominio/tipos';
 import { Campo } from '../componentes/Campo';
+import { EditorMeio } from '../componentes/EditorMeio';
+import { SeletorMeio } from '../componentes/SeletorMeio';
 import { EstadoVazio } from '../componentes/EstadoVazio';
 import { usarToast } from '../componentes/Toast';
 import { usarBase, usarHoje, usarMes } from '../contexto';
@@ -189,18 +191,28 @@ export function FormDespesa({ estado, id }: { estado: Estado; id?: string }) {
   const travado = useRef(false);
   const ultimaSugestao = useRef<string | undefined>(undefined);
   const [idMarcaNova] = useState(() => crypto.randomUUID());
+  const [novoMeio, setNovoMeio] = useState<MeioPagamento | null>(null);
+  const meiosNovos = useRef<MeioPagamento[]>([]);
 
   if (id && !existente) {
     return <EstadoVazio titulo="Despesa não encontrada" texto="Ela pode ter sido excluída." acao={{ rotulo: 'Ver despesas', href: '#/despesas' }} />;
   }
 
   const pausas = existente?.tipo === 'recorrente' ? existente.pausas : [];
-  const meio = estado.meios.find((m) => m.id === v.meioPagamentoId);
+  // O cartão recém-cadastrado pode ainda não ter chegado ao estado (a consulta ao banco é assíncrona).
+  const meios = [...estado.meios, ...meiosNovos.current.filter((n) => !estado.meios.some((m) => m.id === n.id))];
+  const acharMeio = (idMeio: string) =>
+    estado.meios.find((m) => m.id === idMeio) ?? meiosNovos.current.find((m) => m.id === idMeio);
+  const meio = acharMeio(v.meioPagamentoId);
+  const sugestaoDoMeio =
+    meio?.tipo === 'credito' && meio.diaFechamento && meio.diaVencimento
+      ? `Fatura do ${meio.nome}: fecha dia ${meio.diaFechamento} e vence dia ${meio.diaVencimento}. O vencimento sai da data da compra.`
+      : '';
 
   const alterar: Alterar = (campo, valor) => {
     const novo = { ...v, [campo]: valor };
     if (campo === 'dataCompra' || campo === 'meioPagamentoId') {
-      const sugestao = sugerirVencimento(novo.dataCompra, estado.meios.find((m) => m.id === novo.meioPagamentoId));
+      const sugestao = sugerirVencimento(novo.dataCompra, acharMeio(novo.meioPagamentoId));
       if (sugestao) {
         // Só sobrescreve o campo vazio ou ainda igual à última sugestão; o que o usuário digitou fica.
         const livre = (atual: string) => !atual || atual === ultimaSugestao.current;
@@ -247,6 +259,7 @@ export function FormDespesa({ estado, id }: { estado: Estado; id?: string }) {
   const props: PropsCampos = { v, erros, alterar };
 
   return (
+    <>
     <form class="formulario" onSubmit={(e) => void salvar(e)} noValidate>
       <h1>{existente ? 'Editar despesa' : 'Nova despesa'}</h1>
 
@@ -271,28 +284,23 @@ export function FormDespesa({ estado, id }: { estado: Estado; id?: string }) {
           ))}
         </datalist>
       </Campo>
-      <div class="duas-colunas">
-        <Campo id="f-categoria" rotulo="Categoria" erro={erros.categoriaId}>
-          <select id="f-categoria" value={v.categoriaId} onChange={(e) => alterar('categoriaId', e.currentTarget.value)}>
-            <option value="">Escolha…</option>
-            {estado.categorias.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.nome}
-              </option>
-            ))}
-          </select>
-        </Campo>
-        <Campo id="f-meio" rotulo="Meio de pagamento">
-          <select id="f-meio" value={v.meioPagamentoId} onChange={(e) => alterar('meioPagamentoId', e.currentTarget.value)}>
-            <option value="">Não informado</option>
-            {estado.meios.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.nome}
-              </option>
-            ))}
-          </select>
-        </Campo>
-      </div>
+      <Campo id="f-categoria" rotulo="Categoria" erro={erros.categoriaId}>
+        <select id="f-categoria" value={v.categoriaId} onChange={(e) => alterar('categoriaId', e.currentTarget.value)}>
+          <option value="">Escolha…</option>
+          {estado.categorias.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.nome}
+            </option>
+          ))}
+        </select>
+      </Campo>
+      <SeletorMeio
+        meios={meios}
+        valor={v.meioPagamentoId}
+        aoEscolher={(idMeio) => alterar('meioPagamentoId', idMeio)}
+        aoNovo={() => setNovoMeio({ id: crypto.randomUUID(), nome: '', tipo: 'credito' })}
+      />
+      {sugestaoDoMeio && <p class="campo-dica dica-meio">{sugestaoDoMeio}</p>}
 
       {v.tipo === 'avulsa' && <CamposAvulsa {...props} />}
       {v.tipo === 'parcelada' && <CamposParcelada {...props} />}
@@ -338,5 +346,30 @@ export function FormDespesa({ estado, id }: { estado: Estado; id?: string }) {
         {salvando ? 'Salvando…' : 'Salvar despesa'}
       </button>
     </form>
+    {novoMeio && (
+      <div class="folha-fundo" onClick={(e) => e.target === e.currentTarget && setNovoMeio(null)}>
+        <div
+          class="folha"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="titulo-novo-cartao"
+          onKeyDown={(e) => e.key === 'Escape' && setNovoMeio(null)}
+        >
+          <h2 id="titulo-novo-cartao">Novo cartão</h2>
+          <EditorMeio
+            inicial={novoMeio}
+            rotulo="Novo cartão"
+            aoSalvar={(m) => {
+              meiosNovos.current = [...meiosNovos.current, m];
+              setNovoMeio(null);
+              mostrar(`${m.nome} cadastrado`);
+              alterar('meioPagamentoId', m.id);
+            }}
+            aoCancelar={() => setNovoMeio(null)}
+          />
+        </div>
+      </div>
+    )}
+    </>
   );
 }

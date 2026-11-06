@@ -405,6 +405,14 @@ describe('cadastros', () => {
     expect((await base.lancamentos.get('re1@2026-10'))!.vencimento).toBe('2026-11-07');
   });
 
+  it('salvarMeio guarda banco e cor em qualquer tipo, descarta dias fora do crédito e recusa cor inválida', async () => {
+    await repo.salvarMeio(base, { ...PIX, bancoSlug: 'inter', cor: '#0F766E', diaFechamento: 3 }, HOJE);
+    expect(await base.meios.get(PIX.id)).toEqual({ id: PIX.id, nome: 'Pix', tipo: 'pix', bancoSlug: 'inter', cor: '#0F766E' });
+    await repo.salvarMeio(base, { ...CARTAO, bancoSlug: 'nubank' }, HOJE);
+    expect(await base.meios.get(CARTAO.id)).toEqual({ ...CARTAO, bancoSlug: 'nubank' });
+    await expect(repo.salvarMeio(base, { ...PIX, cor: 'vermelho' }, HOJE)).rejects.toThrow('Cor inválida.');
+  });
+
   it('excluirMeio tira o meio das despesas', async () => {
     await repo.salvarMeio(base, CARTAO, HOJE);
     await repo.salvarDespesa(base, avulsa({ meioPagamentoId: CARTAO.id }), { hoje: HOJE });

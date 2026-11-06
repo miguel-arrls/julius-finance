@@ -39,6 +39,10 @@ export interface MeioPagamento {
   tipo: TipoMeio;
   diaFechamento?: number;
   diaVencimento?: number;
+  /** Chave da lista de bancos (src/marcas/bancos.ts). */
+  bancoSlug?: string;
+  /** Cor do cartão, '#RRGGBB'. */
+  cor?: string;
 }
 
 export type TipoDespesa = 'avulsa' | 'parcelada' | 'recorrente';
