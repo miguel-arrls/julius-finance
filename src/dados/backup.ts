@@ -1,4 +1,5 @@
 import { ehDataISO, ehMesISO } from '../dominio/datas';
+import { novoId } from './ids';
 import type { Configuracao, DataISO } from '../dominio/tipos';
 import { VERSAO_ESQUEMA, type ArquivoBackup, type DadosBackup, type JuliusDB } from './db';
 
@@ -204,7 +205,7 @@ export async function importar(base: JuliusDB, arquivo: ArquivoBackup): Promise<
     const atual = await exportar(base);
     const ultimo = await base.snapshots.orderBy('seq').last();
     await base.snapshots.add({
-      id: crypto.randomUUID(),
+      id: novoId(),
       seq: (ultimo?.seq ?? 0) + 1,
       criadoEm: new Date().toISOString(),
       arquivo: atual,

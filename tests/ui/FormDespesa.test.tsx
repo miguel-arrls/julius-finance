@@ -60,14 +60,6 @@ describe('FormDespesa', () => {
     expect(await base.marcas.count()).toBe(1);
   });
 
-  it('o cartão sugere o vencimento a partir da data da compra', async () => {
-    await repo.salvarMeio(base, CARTAO, HOJE);
-    await abrir();
-    escolherMeio(CARTAO.nome);
-    digitar('Data da compra (opcional)', '2026-10-02');
-    expect(screen.getByLabelText('Vencimento')).toHaveValue('2026-11-07');
-  });
-
   it('parcelada mostra a prévia das parcelas', async () => {
     await abrir();
     fireEvent.click(screen.getByRole('radio', { name: 'Parcelada' }));
@@ -101,38 +93,96 @@ describe('FormDespesa', () => {
   });
 });
 
-describe('FormDespesa: sugestão de vencimento', () => {
+describe('FormDespesa: vencimento pela fatura do cartão', () => {
   beforeEach(async () => {
     await repo.salvarMeio(base, CARTAO, HOJE);
   });
 
-  it('não sobrescreve o vencimento digitado (avulsa)', async () => {
+  const preencherAvulsa = () => {
+    digitar('Descrição', 'Tênis');
+    escolher('Categoria', 'cat-compras');
+    digitar('Valor', '300,00');
+  };
+  const salvar = async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar despesa' }));
+    await waitFor(async () => expect(await base.despesas.count()).toBe(1));
+    return (await base.despesas.toArray())[0]!;
+  };
+
+  it('avulsa no cartão: esconde o vencimento e mostra a fatura que a data da compra decide', async () => {
     await abrir();
-    digitar('Vencimento', '2026-12-01');
+    expect(screen.getByLabelText('Vencimento')).toBeInTheDocument();
     escolherMeio(CARTAO.nome);
+    expect(screen.queryByLabelText('Vencimento')).toBeNull();
     digitar('Data da compra (opcional)', '2026-10-02');
-    expect(screen.getByLabelText('Vencimento')).toHaveValue('2026-12-01');
+    expect(screen.getByText('Vence 07/11/2026, na fatura do Cartão Teste.')).toBeInTheDocument();
+    digitar('Data da compra (opcional)', '2026-10-01');
+    expect(screen.getByText('Vence 07/10/2026, na fatura do Cartão Teste.')).toBeInTheDocument();
+    preencherAvulsa();
+    expect(await salvar()).toMatchObject({ vencimento: '2026-10-07', dataCompra: '2026-10-01', aConfirmar: [] });
   });
 
-  it('não sobrescreve o 1º vencimento digitado (parcelada)', async () => {
+  it('sem data da compra: escolhe o mês da fatura e não fica "a confirmar"', async () => {
+    await abrir();
+    escolherMeio(CARTAO.nome);
+    expect(screen.queryByLabelText('Mês de referência')).toBeNull();
+    digitar('Fatura de', '2026-12');
+    expect(screen.getByText('Vence 07/12/2026, na fatura do Cartão Teste.')).toBeInTheDocument();
+    preencherAvulsa();
+    expect(await salvar()).toMatchObject({ vencimento: '2026-12-07', aConfirmar: [] });
+  });
+
+  it('parcelada em andamento: a data da compra original dá o vencimento da parcela inicial', async () => {
     await abrir();
     fireEvent.click(screen.getByRole('radio', { name: 'Parcelada' }));
-    digitar('1º vencimento', '2026-12-01');
     escolherMeio(CARTAO.nome);
-    digitar('Data da compra (opcional)', '2026-10-02');
-    expect(screen.getByLabelText('1º vencimento')).toHaveValue('2026-12-01');
+    expect(screen.queryByLabelText('1º vencimento')).toBeNull();
+    digitar('Número de parcelas', '12');
+    digitar('Começa na parcela', '11');
+    expect(screen.getByLabelText('Fatura da parcela 11')).toBeInTheDocument();
+    digitar('Data da compra (opcional)', '2026-01-01');
+    expect(screen.getByText('Parcela 11 vence 07/11/2026, na fatura do Cartão Teste.')).toBeInTheDocument();
+    digitar('Descrição', 'Celular');
+    escolher('Categoria', 'cat-compras');
+    digitar('Valor total', '1.200,00');
+    const previa = screen.getByRole('region', { name: 'Parcelas que serão geradas' });
+    expect(within(previa).getByText('07/11/2026')).toBeInTheDocument();
+    expect(within(previa).getByText('07/12/2026')).toBeInTheDocument();
   });
 
-  it('atualiza a sugestão quando a data da compra muda, mas respeita o que foi digitado depois', async () => {
+  it('"Alterar vencimento" abre o campo preenchido; o digitado é salvo; dá para voltar à fatura', async () => {
     await abrir();
     escolherMeio(CARTAO.nome);
     digitar('Data da compra (opcional)', '2026-10-01');
+    fireEvent.click(screen.getByRole('button', { name: 'Alterar vencimento' }));
     expect(screen.getByLabelText('Vencimento')).toHaveValue('2026-10-07');
-    digitar('Data da compra (opcional)', '2026-10-02');
-    expect(screen.getByLabelText('Vencimento')).toHaveValue('2026-11-07');
-    digitar('Vencimento', '2026-12-15');
-    digitar('Data da compra (opcional)', '2026-10-01');
+    fireEvent.click(screen.getByRole('button', { name: 'Usar o vencimento da fatura' }));
+    expect(screen.queryByLabelText('Vencimento')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Alterar vencimento' }));
+    digitar('Vencimento', '2026-11-07');
+    preencherAvulsa();
+    expect(await salvar()).toMatchObject({ vencimento: '2026-11-07', dataCompra: '2026-10-01' });
+  });
+
+  it('editar despesa com vencimento fora da regra abre com o campo e mantém a data', async () => {
+    await repo.salvarDespesa(
+      base,
+      avulsa({ id: 'a', meioPagamentoId: CARTAO.id, dataCompra: '2026-10-01', vencimento: '2026-12-15', mes: '2026-12' }),
+      { hoje: HOJE },
+    );
+    await abrir('a');
     expect(screen.getByLabelText('Vencimento')).toHaveValue('2026-12-15');
+    digitar('Descrição', 'Outra descrição');
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar despesa' }));
+    await waitFor(async () => expect(await base.despesas.get('a')).toMatchObject({ descricao: 'Outra descrição', vencimento: '2026-12-15' }));
+  });
+
+  it('recorrente no cartão continua com a primeira cobrança', async () => {
+    await abrir();
+    fireEvent.click(screen.getByRole('radio', { name: 'Recorrente' }));
+    escolherMeio(CARTAO.nome);
+    expect(screen.getByLabelText('Primeira cobrança')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Alterar vencimento' })).toBeNull();
   });
 });
 
@@ -160,7 +210,7 @@ describe('FormDespesa: edição', () => {
 });
 
 describe('FormDespesa: novo cartão sem sair do formulário', () => {
-  it('cadastra o cartão, deixa selecionado e sugere o vencimento', async () => {
+  it('cadastra o cartão, deixa selecionado e mostra a fatura', async () => {
     await abrir();
     digitar('Data da compra (opcional)', '2026-10-01');
     fireEvent.click(screen.getByRole('button', { name: 'Novo cartão' }));
@@ -173,7 +223,7 @@ describe('FormDespesa: novo cartão sem sair do formulário', () => {
 
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(screen.getByRole('radio', { name: /^Inter/ })).toHaveAttribute('aria-checked', 'true');
-    expect(screen.getByLabelText('Vencimento')).toHaveValue('2026-10-07');
+    expect(screen.getByText('Vence 07/10/2026, na fatura do Inter.')).toBeInTheDocument();
     const [meio] = await base.meios.toArray();
     expect(meio).toMatchObject({ nome: 'Inter', tipo: 'credito', bancoSlug: 'inter', diaFechamento: 2, diaVencimento: 7 });
   });

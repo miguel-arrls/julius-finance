@@ -1,9 +1,10 @@
 import { useRef, useState } from 'preact/hooks';
+import { novoId } from '../../dados/ids';
 import { salvarDespesa, salvarMarca } from '../../dados/repositorio';
 import { formatarData, formatarMes, formatarMesCurto, mesDe, somarMesesAoMes } from '../../dominio/datas';
 import { dividirEmParcelas, formatarReais, lerReais } from '../../dominio/dinheiro';
 import { diferencaParcelas } from '../../dominio/parcelas';
-import { ErroDominio, type Despesa, type Lancamento, type MeioPagamento, type TipoDespesa } from '../../dominio/tipos';
+import { ErroDominio, type DataISO, type Despesa, type Lancamento, type MeioPagamento, type TipoDespesa } from '../../dominio/tipos';
 import { Campo } from '../componentes/Campo';
 import { EditorMeio } from '../componentes/EditorMeio';
 import { SeletorMeio } from '../componentes/SeletorMeio';
@@ -18,9 +19,11 @@ import {
   montarDespesa,
   mudouCobranca,
   previa,
+  aplicarFatura,
+  cartaoComFatura,
   resolverMarca,
-  sugerirVencimento,
   validar,
+  vencimentoPelaFatura,
   valoresDeDespesa,
   valoresDuplicados,
   valoresIniciais,
@@ -40,6 +43,42 @@ interface PropsCampos {
   v: ValoresForm;
   erros: ErrosForm;
   alterar: Alterar;
+  /** Presente quando o meio é cartão com fatura: o vencimento sai dela, salvo se o usuário preferir digitar. */
+  fatura?: { meio: MeioPagamento; vencimento?: DataISO };
+  alternarManual: (manual: boolean) => void;
+}
+
+const parcelaInicial = (v: ValoresForm) => {
+  const k = Number(v.comecaNaParcela);
+  return Number.isInteger(k) && k > 1 ? k : 1;
+};
+
+/** Resumo do vencimento calculado pela fatura, com a saída para digitar outro. */
+function LinhaFatura({ v, fatura, alternarManual }: PropsCampos) {
+  if (!fatura) return null;
+  const k = parcelaInicial(v);
+  const sujeito = v.tipo === 'parcelada' ? (k > 1 ? `Parcela ${k} vence` : '1ª parcela vence') : 'Vence';
+  return (
+    <div class="linha-fatura">
+      <p aria-live="polite">
+        {fatura.vencimento
+          ? `${sujeito} ${formatarData(fatura.vencimento)}, na fatura do ${fatura.meio.nome}.`
+          : 'Informe a data da compra ou o mês da fatura.'}
+      </p>
+      <button type="button" class="botao botao-texto" onClick={() => alternarManual(true)}>
+        Alterar vencimento
+      </button>
+    </div>
+  );
+}
+
+function VoltarParaFatura({ fatura, alternarManual }: PropsCampos) {
+  if (!fatura) return null;
+  return (
+    <button type="button" class="botao botao-texto voltar-fatura" onClick={() => alternarManual(false)}>
+      Usar o vencimento da fatura
+    </button>
+  );
 }
 
 function CampoDataCompra({ v, erros, alterar }: PropsCampos) {
@@ -83,6 +122,23 @@ function ValorDestaque({ v, erros, alterar }: PropsCampos) {
 
 function CamposAvulsa(p: PropsCampos) {
   const { v, erros, alterar } = p;
+  if (p.fatura && !v.vencimentoManual) {
+    return (
+      <>
+        {v.dataCompra ? (
+          <CampoDataCompra {...p} />
+        ) : (
+          <div class="duas-colunas">
+            <CampoDataCompra {...p} />
+            <Campo id="f-mes" rotulo="Fatura de" erro={erros.mes}>
+              <input id="f-mes" type="month" value={v.mes} onInput={(e) => alterar('mes', e.currentTarget.value)} />
+            </Campo>
+          </div>
+        )}
+        <LinhaFatura {...p} />
+      </>
+    );
+  }
   return (
     <>
       <div class="duas-colunas">
@@ -91,6 +147,7 @@ function CamposAvulsa(p: PropsCampos) {
           <input id="f-vencimento" type="date" value={v.vencimento} onInput={(e) => alterar('vencimento', e.currentTarget.value)} />
         </Campo>
       </div>
+      <VoltarParaFatura {...p} />
       {!v.vencimento && (
         <Campo id="f-mes" rotulo="Mês de referência" erro={erros.mes} dica="Sem vencimento, a despesa conta neste mês e fica como a confirmar.">
           <input id="f-mes" type="month" value={v.mes} onInput={(e) => alterar('mes', e.currentTarget.value)} />
@@ -102,40 +159,72 @@ function CamposAvulsa(p: PropsCampos) {
 
 function CamposParcelada(p: PropsCampos) {
   const { v, erros, alterar } = p;
+  const automatico = p.fatura !== undefined && !v.vencimentoManual;
+  const k = parcelaInicial(v);
+  const quantidade = (
+    <div class="duas-colunas">
+      <Campo id="f-num-parcelas" rotulo="Número de parcelas" erro={erros.numParcelas}>
+        <input id="f-num-parcelas" inputMode="numeric" value={v.numParcelas} onInput={(e) => alterar('numParcelas', e.currentTarget.value)} />
+      </Campo>
+      <Campo
+        id="f-valor-parcela"
+        rotulo="Valor da parcela (opcional)"
+        erro={erros.valorParcela}
+        dica="Se não for o total dividido (juros)."
+      >
+        <input id="f-valor-parcela" inputMode="decimal" placeholder="0,00" value={v.valorParcela} onInput={(e) => alterar('valorParcela', e.currentTarget.value)} />
+      </Campo>
+    </div>
+  );
+  const comecaNa = (
+    <Campo
+      id="f-comeca"
+      rotulo="Começa na parcela"
+      erro={erros.comecaNaParcela}
+      dica={
+        automatico
+          ? 'Para compras que já estavam em andamento; as parcelas anteriores ficam fora do app.'
+          : 'Para compras que já estavam em andamento. O 1º vencimento é o desta parcela; as anteriores ficam fora do app.'
+      }
+    >
+      <input id="f-comeca" inputMode="numeric" value={v.comecaNaParcela} onInput={(e) => alterar('comecaNaParcela', e.currentTarget.value)} />
+    </Campo>
+  );
+  if (automatico) {
+    return (
+      <>
+        {quantidade}
+        {v.dataCompra ? (
+          <CampoDataCompra {...p} />
+        ) : (
+          <div class="duas-colunas">
+            <CampoDataCompra {...p} />
+            <Campo id="f-mes-primeira" rotulo={k > 1 ? `Fatura da parcela ${k}` : 'Fatura da 1ª parcela'} erro={erros.mesPrimeira}>
+              <input id="f-mes-primeira" type="month" value={v.mesPrimeira} onInput={(e) => alterar('mesPrimeira', e.currentTarget.value)} />
+            </Campo>
+          </div>
+        )}
+        {comecaNa}
+        <LinhaFatura {...p} />
+      </>
+    );
+  }
   return (
     <>
-      <div class="duas-colunas">
-        <Campo id="f-num-parcelas" rotulo="Número de parcelas" erro={erros.numParcelas}>
-          <input id="f-num-parcelas" inputMode="numeric" value={v.numParcelas} onInput={(e) => alterar('numParcelas', e.currentTarget.value)} />
-        </Campo>
-        <Campo
-          id="f-valor-parcela"
-          rotulo="Valor da parcela (opcional)"
-          erro={erros.valorParcela}
-          dica="Se não for o total dividido (juros)."
-        >
-          <input id="f-valor-parcela" inputMode="decimal" placeholder="0,00" value={v.valorParcela} onInput={(e) => alterar('valorParcela', e.currentTarget.value)} />
-        </Campo>
-      </div>
+      {quantidade}
       <div class="duas-colunas">
         <CampoDataCompra {...p} />
         <Campo id="f-primeiro-venc" rotulo="1º vencimento" erro={erros.primeiroVencimento}>
           <input id="f-primeiro-venc" type="date" value={v.primeiroVencimento} onInput={(e) => alterar('primeiroVencimento', e.currentTarget.value)} />
         </Campo>
       </div>
+      <VoltarParaFatura {...p} />
       {!v.primeiroVencimento && (
         <Campo id="f-mes-primeira" rotulo="Mês da 1ª parcela" erro={erros.mesPrimeira}>
           <input id="f-mes-primeira" type="month" value={v.mesPrimeira} onInput={(e) => alterar('mesPrimeira', e.currentTarget.value)} />
         </Campo>
       )}
-      <Campo
-        id="f-comeca"
-        rotulo="Começa na parcela"
-        erro={erros.comecaNaParcela}
-        dica="Para compras que já estavam em andamento. O 1º vencimento é o desta parcela; as anteriores ficam fora do app."
-      >
-        <input id="f-comeca" inputMode="numeric" value={v.comecaNaParcela} onInput={(e) => alterar('comecaNaParcela', e.currentTarget.value)} />
-      </Campo>
+      {comecaNa}
     </>
   );
 }
@@ -204,10 +293,10 @@ export function FormDespesa({ estado, id, de }: { estado: Estado; id?: string; d
   const mostrar = usarToast();
   const existente = id ? estado.despesas.find((d) => d.id === id) : undefined;
   const origem = !id && de ? estado.despesas.find((d) => d.id === de) : undefined;
-  const [idDespesa] = useState(() => id ?? crypto.randomUUID());
+  const [idDespesa] = useState(() => id ?? novoId());
   const [v, setV] = useState<ValoresForm>(() =>
     existente
-      ? valoresDeDespesa(existente, estado.marcas, mesAtual)
+      ? valoresDeDespesa(existente, estado.marcas, mesAtual, estado.meios)
       : origem
         ? valoresDuplicados(origem, estado.marcas, mesAtual)
         : valoresIniciais(mesAtual),
@@ -217,8 +306,7 @@ export function FormDespesa({ estado, id, de }: { estado: Estado; id?: string; d
   const [aPartirDe, setAPartirDe] = useState(mesDe(hoje));
   const [salvando, setSalvando] = useState(false);
   const travado = useRef(false);
-  const ultimaSugestao = useRef<string | undefined>(undefined);
-  const [idMarcaNova] = useState(() => crypto.randomUUID());
+  const [idMarcaNova] = useState(() => novoId());
   const [novoMeio, setNovoMeio] = useState<MeioPagamento | null>(null);
   const meiosNovos = useRef<MeioPagamento[]>([]);
 
@@ -234,35 +322,34 @@ export function FormDespesa({ estado, id, de }: { estado: Estado; id?: string; d
   const meio = acharMeio(v.meioPagamentoId);
   const sugestaoDoMeio =
     meio?.tipo === 'credito' && meio.diaFechamento && meio.diaVencimento
-      ? `Fatura do ${meio.nome}: fecha dia ${meio.diaFechamento} e vence dia ${meio.diaVencimento}. O vencimento sai da data da compra.`
+      ? `Fatura do ${meio.nome}: fecha dia ${meio.diaFechamento} e vence dia ${meio.diaVencimento}.`
       : '';
 
   const alterar: Alterar = (campo, valor) => {
-    const novo = { ...v, [campo]: valor };
-    if (campo === 'dataCompra' || campo === 'meioPagamentoId') {
-      const sugestao = sugerirVencimento(novo.dataCompra, acharMeio(novo.meioPagamentoId));
-      if (sugestao) {
-        // Só sobrescreve o campo vazio ou ainda igual à última sugestão; o que o usuário digitou fica.
-        const livre = (atual: string) => !atual || atual === ultimaSugestao.current;
-        if (novo.tipo === 'avulsa' && livre(v.vencimento)) novo.vencimento = sugestao;
-        if (novo.tipo === 'parcelada' && livre(v.primeiroVencimento)) novo.primeiroVencimento = sugestao;
-        ultimaSugestao.current = sugestao;
-      }
-    }
-    setV(novo);
+    setV({ ...v, [campo]: valor });
     setErros((e) => (e[campo] ? { ...e, [campo]: undefined } : e));
   };
 
-  const montada = Object.keys(validar(v)).length === 0 ? montarDespesa(v, { id: idDespesa, pausas }) : null;
+  // Avulsa e parcelada no cartão: o vencimento sai da fatura (modo automático) até o usuário pedir para digitar.
+  const fatura = v.tipo !== 'recorrente' && meio && cartaoComFatura(meio) ? { meio, vencimento: vencimentoPelaFatura(v, meio) } : undefined;
+  const efetivo = aplicarFatura(v, meio);
+  const alternarManual = (manual: boolean) => {
+    const campo = v.tipo === 'parcelada' ? 'primeiroVencimento' : 'vencimento';
+    // Ao abrir o campo, ele já vem com o vencimento da fatura para o usuário só ajustar.
+    setV(manual ? { ...v, vencimentoManual: true, [campo]: fatura?.vencimento ?? v[campo] } : { ...v, vencimentoManual: false });
+    setErros((e) => ({ ...e, vencimento: undefined, primeiroVencimento: undefined, mes: undefined, mesPrimeira: undefined }));
+  };
+
+  const montada = Object.keys(validar(efetivo)).length === 0 ? montarDespesa(efetivo, { id: idDespesa, pausas }) : null;
   const prev = montada ? previa(montada, meio, hoje) : null;
-  const pendentes = atualizarAConfirmar(v);
+  const pendentes = atualizarAConfirmar(efetivo);
   const perguntarAPartir = existente !== undefined && montada !== null && mudouCobranca(existente, montada);
   const mesesAPartir = Array.from({ length: 13 }, (_, k) => somarMesesAoMes(mesDe(hoje), k));
 
   async function salvar(e: Event) {
     e.preventDefault();
     if (travado.current) return;
-    const encontrados = validar(v);
+    const encontrados = validar(efetivo);
     setErros(encontrados);
     if (Object.keys(encontrados).length > 0) return;
     travado.current = true;
@@ -271,7 +358,7 @@ export function FormDespesa({ estado, id, de }: { estado: Estado; id?: string; d
     try {
       const marca = resolverMarca(v.marca, v.descricao, estado.marcas, () => idMarcaNova);
       if (marca.nova) await salvarMarca(base, marca.nova);
-      const despesa = montarDespesa(v, { id: idDespesa, marcaId: marca.marcaId ?? marca.nova?.id, pausas });
+      const despesa = montarDespesa(efetivo, { id: idDespesa, marcaId: marca.marcaId ?? marca.nova?.id, pausas });
       const aplicarDesde = existente && mudouCobranca(existente, despesa) ? aPartirDe : undefined;
       await salvarDespesa(base, despesa, { hoje, aPartirDe: aplicarDesde });
       mostrar(existente ? 'Despesa atualizada' : 'Despesa cadastrada');
@@ -284,7 +371,7 @@ export function FormDespesa({ estado, id, de }: { estado: Estado; id?: string; d
     }
   }
 
-  const props: PropsCampos = { v, erros, alterar };
+  const props: PropsCampos = { v, erros, alterar, fatura, alternarManual };
 
   return (
     <>
@@ -329,7 +416,7 @@ export function FormDespesa({ estado, id, de }: { estado: Estado; id?: string; d
         meios={meios}
         valor={v.meioPagamentoId}
         aoEscolher={(idMeio) => alterar('meioPagamentoId', idMeio)}
-        aoNovo={() => setNovoMeio({ id: crypto.randomUUID(), nome: '', tipo: 'credito' })}
+        aoNovo={() => setNovoMeio({ id: novoId(), nome: '', tipo: 'credito' })}
       />
       {sugestaoDoMeio && <p class="campo-dica dica-meio">{sugestaoDoMeio}</p>}
 

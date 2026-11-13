@@ -73,15 +73,19 @@ export function EditorMeio({
       <fieldset class="campo">
         <legend class="campo-rotulo">Banco</legend>
         {BANCOS.length >= MOSTRAR_BUSCA_A_PARTIR && (
-          <input
-            id="mp-busca-banco"
-            type="search"
-            class="busca"
-            aria-label="Buscar banco"
-            placeholder="Buscar banco"
-            value={busca}
-            onInput={(e) => setBusca(e.currentTarget.value)}
-          />
+          <>
+            <label for="mp-busca-banco" class="campo-rotulo">
+              Buscar banco
+            </label>
+            <input
+              id="mp-busca-banco"
+              type="search"
+              class="busca"
+              placeholder="Nome do banco"
+              value={busca}
+              onInput={(e) => setBusca(e.currentTarget.value)}
+            />
+          </>
         )}
         <div class="grade-bancos" role="radiogroup" aria-label="Banco">
           {bancos.map((b) => (

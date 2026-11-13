@@ -19,9 +19,9 @@ import {
   type Mudancas,
 } from '../dominio/tipos';
 import { VERSAO_ESQUEMA, type JuliusDB, type RegistroConfig } from './db';
+import { novoId } from './ids';
 
 const agora = (): string => new Date().toISOString();
-const novoId = (): string => crypto.randomUUID();
 const CAMPOS_IGNORADOS = new Set(['criadaEm', 'atualizadaEm']);
 const COR_HEX = /^#[0-9a-f]{6}$/i;
 

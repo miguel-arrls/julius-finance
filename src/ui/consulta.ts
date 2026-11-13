@@ -3,6 +3,14 @@ import { useEffect, useState } from 'preact/hooks';
 
 type Resultado<T> = { v: T; erro?: undefined } | { erro: unknown };
 
+/** Falha ao ler o banco do aparelho; o error boundary a distingue de um erro de programação na tela. */
+export class ErroLeitura extends Error {
+  constructor(readonly causa: unknown) {
+    super('Falha na leitura dos dados');
+    this.name = 'ErroLeitura';
+  }
+}
+
 /**
  * Executa a consulta e a repete sempre que as tabelas lidas mudarem.
  * Se a consulta falhar, o erro é relançado no render para um error boundary tratar.
@@ -14,7 +22,7 @@ export function usarConsulta<T>(consulta: () => Promise<T>, deps: unknown[]): T 
       next: (v) => setResultado({ v }),
       error: (e: unknown) => {
         console.error(e);
-        setResultado({ erro: e ?? new Error('Falha na leitura dos dados') });
+        setResultado({ erro: new ErroLeitura(e) });
       },
     });
     return () => assinatura.unsubscribe();

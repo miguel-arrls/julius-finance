@@ -90,7 +90,9 @@ describe('Início', () => {
     );
     await repo.marcarPaga(base, 'r3@2026-09', '2026-10-01');
     abrir();
-    fireEvent.click(await screen.findByRole('button', { name: `Marcar fatura ${CARTAO.nome} como paga` }));
+    // O nome acessível contém o texto visível (WCAG 2.5.3); o cartão em volta diz de qual banco é.
+    const doCartao = await screen.findByRole('article', { name: `Cartão ${CARTAO.nome}` });
+    fireEvent.click(within(doCartao).getByRole('button', { name: 'Pagar fatura' }));
     expect(await screen.findByText('Fatura paga')).toBeInTheDocument();
     expect((await base.lancamentos.get('r@2026-09'))!.pagoEm).toBe(HOJE);
     expect((await base.lancamentos.get('r2@2026-09'))!.pagoEm).toBe(HOJE);

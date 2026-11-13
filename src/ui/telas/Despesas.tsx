@@ -1,3 +1,4 @@
+import { IconCheck } from '@tabler/icons-preact';
 import { useState } from 'preact/hooks';
 import { estadoRecorrencia, type EstadoRecorrencia } from '../../dominio/recorrencias';
 import type { Lancamento, TipoDespesa } from '../../dominio/tipos';
@@ -28,6 +29,20 @@ const ABAS: { tipo: TipoDespesa; rotulo: string; vazio: { titulo: string; texto:
 
 export function PilulaEstado({ estado }: { estado: EstadoRecorrencia }) {
   return <span class={`pilula${estado === 'ativa' ? ' pilula-paga' : ''}`}>{ROTULO_ESTADO[estado]}</span>;
+}
+
+/** Parcelada ou avulsa sem nada em aberto: todas as cobranças geradas já têm pagamento. */
+function tudoPago(lancamentos: Lancamento[]): boolean {
+  return lancamentos.length > 0 && lancamentos.every((l) => l.pagoEm);
+}
+
+function PilulaQuitada({ tipo }: { tipo: TipoDespesa }) {
+  return (
+    <span class="pilula pilula-paga pilula-com-icone">
+      <IconCheck size={14} stroke={2.5} aria-hidden="true" />
+      {tipo === 'parcelada' ? 'Quitada' : 'Paga'}
+    </span>
+  );
 }
 
 export function Despesas({ estado }: { estado: Estado }) {
@@ -79,6 +94,7 @@ export function Despesas({ estado }: { estado: Estado }) {
                 </span>
                 <span class="linha-valores">
                   {d.tipo === 'recorrente' && <PilulaEstado estado={estadoRecorrencia(d, hoje)} />}
+                  {d.tipo !== 'recorrente' && tudoPago(porDespesa.get(d.id) ?? []) && <PilulaQuitada tipo={d.tipo} />}
                   {d.aConfirmar.length > 0 && <span class="pilula pilula-sem-vencimento">a confirmar</span>}
                 </span>
               </a>

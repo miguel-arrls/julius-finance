@@ -28,6 +28,27 @@ describe('Despesas', () => {
     expect(screen.getByText('Nenhuma compra parcelada')).toBeInTheDocument();
   });
 
+  it('parcelada com todas as parcelas pagas mostra "Quitada"; com alguma aberta, não', async () => {
+    await repo.salvarDespesa(base, parcelada({ id: 'pq', descricao: 'Toda paga' }), { hoje: HOJE });
+    await repo.salvarDespesa(base, parcelada({ id: 'pa', descricao: 'Em aberto' }), { hoje: HOJE });
+    for (const n of [1, 2, 3]) await repo.marcarPaga(base, `pq#${n}`, HOJE);
+    for (const n of [1, 2]) await repo.marcarPaga(base, `pa#${n}`, HOJE);
+    renderizar(<ComEstado filho={(e) => <Despesas estado={e} />} />, base);
+    fireEvent.click(await screen.findByRole('tab', { name: 'Parceladas' }));
+    expect(screen.getByRole('link', { name: /Toda paga/ })).toHaveTextContent('Quitada');
+    expect(screen.getByRole('link', { name: /Em aberto/ })).not.toHaveTextContent('Quitada');
+  });
+
+  it('avulsa paga mostra "Paga"; não paga, não', async () => {
+    await repo.salvarDespesa(base, avulsa({ id: 'ap', descricao: 'Já paguei' }), { hoje: HOJE });
+    await repo.salvarDespesa(base, avulsa({ id: 'aa', descricao: 'Falta pagar' }), { hoje: HOJE });
+    await repo.marcarPaga(base, 'ap#1', HOJE);
+    renderizar(<ComEstado filho={(e) => <Despesas estado={e} />} />, base);
+    fireEvent.click(await screen.findByRole('tab', { name: 'Avulsas' }));
+    expect(await screen.findByRole('link', { name: /Já paguei/ })).toHaveTextContent(/Paga$/);
+    expect(screen.getByRole('link', { name: /Falta pagar/ })).not.toHaveTextContent(/Paga$/);
+  });
+
   it('agrupa o que está a confirmar', async () => {
     await repo.salvarDespesa(base, avulsa({ descricao: 'Celular', aConfirmar: ['vencimento', 'loja'] }), { hoje: HOJE });
     renderizar(<ComEstado filho={(e) => <Despesas estado={e} />} />, base);

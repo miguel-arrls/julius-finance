@@ -1,4 +1,5 @@
 import { IconEdit, IconTrash } from '@tabler/icons-preact';
+import { novoId } from '../../dados/ids';
 import { useState } from 'preact/hooks';
 import { excluirMeio } from '../../dados/repositorio';
 import { ErroDominio, type MeioPagamento } from '../../dominio/tipos';
@@ -43,7 +44,7 @@ export function Meios({ estado }: { estado: Estado }) {
           aoCancelar={() => setEditando(null)}
         />
       ) : (
-        <button type="button" class="botao botao-primario" onClick={() => setEditando({ id: crypto.randomUUID(), nome: '', tipo: 'credito' })}>
+        <button type="button" class="botao botao-primario" onClick={() => setEditando({ id: novoId(), nome: '', tipo: 'credito' })}>
           Novo meio de pagamento
         </button>
       )}

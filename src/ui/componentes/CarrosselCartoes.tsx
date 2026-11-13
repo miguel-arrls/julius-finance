@@ -3,7 +3,7 @@ import { formatarDataCurta } from '../../dominio/datas';
 import { formatarReais } from '../../dominio/dinheiro';
 import type { Fatura } from '../../dominio/resumo';
 import type { MeioPagamento } from '../../dominio/tipos';
-import { plural, ROTULO_MEIO } from '../textos';
+import { plural } from '../textos';
 import { corDoMeio, LogoMeio } from './Logo';
 
 /**
@@ -24,7 +24,7 @@ export function CarrosselCartoes({
   const cartoes = meios.filter((m) => m.tipo === 'credito');
   if (cartoes.length === 0) return null;
   return (
-    <section class="carrossel" aria-label="Cartões de crédito">
+    <section class="carrossel" aria-label="Cartões de crédito" data-layout="preencher">
       {cartoes.map((m) => {
         const doCartao = faturas.filter((f) => f.meioId === m.id);
         // A fatura "principal" vence no dia do cartão; outras datas vêm de vencimentos digitados à mão.
@@ -36,12 +36,12 @@ export function CarrosselCartoes({
         return (
           <article key={m.id} class="cartao-banco" style={{ backgroundColor: corDoMeio(m) }} aria-label={`Cartão ${m.nome}`}>
             <a class="cartao-banco-link" href={hrefDoMeio(m.id)}>
+              {/* Todo cartão do carrossel é de crédito (a seção já diz isso): o nome fica com a linha inteira. */}
               <span class="cartao-banco-topo">
                 <span class="cartao-banco-nome">
                   <LogoMeio meio={m} tamanho={28} />
                   {m.nome}
                 </span>
-                <span>{ROTULO_MEIO[m.tipo]}</span>
               </span>
               <span class="cartao-banco-meio">
                 <span class="cartao-banco-rotulo">{fatura ? 'Fatura do mês' : 'Sem fatura neste mês'}</span>
@@ -63,7 +63,7 @@ export function CarrosselCartoes({
                 (fatura.pago ? (
                   <span class="cartao-banco-pago">Fatura paga</span>
                 ) : (
-                  <button type="button" class="cartao-banco-pagar" aria-label={`Marcar fatura ${m.nome} como paga`} onClick={() => aoPagar(fatura, m)}>
+                  <button type="button" class="cartao-banco-pagar" style={{ color: corDoMeio(m) }} onClick={() => aoPagar(fatura, m)}>
                     Pagar fatura
                   </button>
                 ))}

@@ -18,6 +18,7 @@ import {
 import type { Centavos } from '../../dominio/tipos';
 import { AlertasAtrasadas } from '../componentes/AlertasAtrasadas';
 import { CarrosselCartoes } from '../componentes/CarrosselCartoes';
+import { ValorQueCabe } from '../componentes/ValorQueCabe';
 import { EstadoVazio } from '../componentes/EstadoVazio';
 import { LinhaLancamento } from '../componentes/LinhaLancamento';
 import { SeletorMes } from '../componentes/SeletorMes';
@@ -46,7 +47,7 @@ function Metrica({
   const conteudo = (
     <>
       <span class="metrica-rotulo">{rotulo}</span>
-      <span class={`metrica-valor ${classe}`}>{formatarReais(valor)}</span>
+      <ValorQueCabe class={`metrica-valor ${classe}`}>{formatarReais(valor)}</ValorQueCabe>
     </>
   );
   return href ? (
@@ -251,7 +252,7 @@ export function Inicio({ estado }: { estado: Estado }) {
               {futuros.map((f) => (
                 <a class="metrica metrica-pequena metrica-link" key={f.mes} href={caminho({ tela: 'lancamentos', filtros: { mes: f.mes } })}>
                   <span class="metrica-rotulo">{formatarMesCurto(f.mes)}</span>
-                  <span class="metrica-valor">{formatarReais(f.total)}</span>
+                  <ValorQueCabe class="metrica-valor">{formatarReais(f.total)}</ValorQueCabe>
                   {f.temEstimado && <span class="texto-suave">inclui estimativas</span>}
                 </a>
               ))}

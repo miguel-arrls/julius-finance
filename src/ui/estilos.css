@@ -108,7 +108,8 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .nav-nova-rotulo { display: none; }
 
 @media (min-width: 768px) {
-  .casca { display: grid; grid-template-columns: 232px 1fr; }
+  /* minmax(0, 1fr): a coluna não cresce com o conteúdo (evita rolagem lateral e largura que muda com os dados). */
+  .casca { display: grid; grid-template-columns: 232px minmax(0, 1fr); }
   .navegacao {
     position: sticky; top: 0; height: 100dvh;
     flex-direction: column; justify-content: flex-start; align-items: stretch; gap: 4px;
@@ -120,8 +121,11 @@ button, input, select, textarea { font: inherit; color: inherit; }
   .nav-so-largo { display: flex; }
   .nav-nova { position: static; width: auto; height: 48px; margin: 0 0 12px; border-radius: 24px; gap: 8px; box-shadow: none; }
   .nav-nova-rotulo { display: inline; font-weight: 600; }
-  .conteudo { max-width: 960px; padding: 32px 32px 48px; }
-  .grade-inicio { display: grid; grid-template-columns: 1fr 1fr; gap: 0 24px; }
+  .conteudo { width: 100%; max-width: 960px; padding: 32px 32px 48px; }
+}
+/* Duas colunas só a partir de 1024 px: entre 768 e 1023 elas ficariam com ~224 px e cortariam o conteúdo. */
+@media (min-width: 1024px) {
+  .grade-inicio { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 24px; }
 }
 
 /* Botões */
@@ -145,9 +149,13 @@ button, input, select, textarea { font: inherit; color: inherit; }
 /* Cartões e métricas */
 .cartao { background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio); padding: 16px; margin: 12px 0; }
 .cartao h2:first-child { margin-top: 0; }
-.cartoes-resumo { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+/* Caixas de métrica: passam para a linha de baixo quando não cabem; o valor ajusta a fonte (ValorQueCabe). */
+.cartoes-resumo, .meses-futuros, .indicadores { display: flex; flex-wrap: wrap; gap: 8px; }
+.cartoes-resumo > * { flex: 1 1 140px; min-width: 0; }
+.meses-futuros > * { flex: 1 1 auto; min-width: 0; } /* largura pelo conteúdo: valor grande desce de linha */
+.indicadores > * { flex: 1 1 96px; }
 .metrica { background: var(--superficie); border-radius: var(--raio); padding: 12px 14px; display: flex; flex-direction: column; gap: 2px; }
-.metrica-destaque { grid-column: 1 / -1; }
+.metrica-destaque { flex: 1 1 auto; min-width: 0; }
 .metrica-rotulo { font-size: 0.8125rem; color: var(--texto-2); }
 .metrica-valor { font-size: 1.25rem; font-weight: 650; font-variant-numeric: tabular-nums; }
 .metrica-destaque .metrica-valor { font-size: 1.875rem; }
@@ -184,6 +192,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
   white-space: nowrap; background: var(--superficie-2); color: var(--texto-2);
 }
 .pilula-paga { background: var(--sucesso-suave); color: var(--sucesso); }
+.pilula-com-icone { display: inline-flex; align-items: center; gap: 4px; padding-left: 6px; }
 .pilula-atrasada { background: var(--perigo-suave); color: var(--perigo); }
 .pilula-sem-vencimento { background: var(--aviso-suave); color: var(--aviso); }
 .pilula-pendente { background: var(--acento-suave); color: var(--pendente-texto); }
@@ -203,7 +212,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .barra-topo h2 { margin: 0; }
 .barra-trilho { height: 8px; border-radius: 4px; background: var(--superficie-2); overflow: hidden; }
 .barra-preenchida { height: 100%; border-radius: 4px; }
-.meses-futuros { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+
 
 /* Formulários */
 .formulario { display: flex; flex-direction: column; gap: 4px; }
@@ -254,6 +263,8 @@ button, input, select, textarea { font: inherit; color: inherit; }
 /* Filtros */
 .busca { margin-bottom: 4px; }
 .filtros { display: flex; gap: 8px; overflow-x: auto; margin: 0 -16px; padding: 8px 16px; }
+/* Filtro com rótulo visível ao lado (cabe na linha de chips sem aumentar a altura). */
+.filtro-rotulado { flex: none; display: inline-flex; align-items: center; gap: 6px; font-size: 0.8125rem; color: var(--texto-2); }
 .filtros select {
   flex: none; min-height: var(--toque); padding: 0 12px; border: 1px solid var(--borda);
   border-radius: 999px; background: var(--superficie); font-size: 16px;
@@ -302,7 +313,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
   position: absolute; right: -4px; bottom: -4px; box-shadow: 0 0 0 2px var(--superficie);
 }
 .seletor-meio { display: flex; gap: 8px; overflow-x: auto; margin: 0 -16px; padding: 4px 16px 8px; scrollbar-width: none; }
-.seletor-meio-opcoes { display: flex; gap: 8px; }
+.seletor-meio-opcoes { display: flex; gap: 8px; flex: none; }
 .opcao-meio {
   flex: none; display: flex; align-items: center; gap: 8px; min-height: 56px; padding: 8px 14px 8px 10px;
   border: 1px solid var(--borda); border-radius: 14px; background: var(--superficie); text-align: left; cursor: pointer;
@@ -314,6 +325,14 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .opcao-meio-nome { font-weight: 600; font-size: 0.9375rem; white-space: nowrap; }
 .opcao-meio-tipo { font-size: 0.75rem; color: var(--texto-2); }
 .dica-meio { margin: -4px 0 12px; }
+.linha-fatura {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px;
+  margin: 0 0 12px; padding: 6px 6px 6px 14px; border-radius: 14px; background: var(--superficie-2);
+}
+.linha-fatura p { margin: 0; font-weight: 600; font-size: 0.9375rem; }
+.botao-texto { border-color: transparent; background: transparent; padding: 0 10px; text-decoration: underline; text-underline-offset: 3px; }
+.linha-fatura .botao-texto { margin-left: -10px; }
+.voltar-fatura { align-self: flex-start; margin: -8px 0 8px -10px; }
 .grade-bancos { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 6px; }
 .grade-bancos button {
   display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 76px; padding: 8px 4px;
@@ -391,11 +410,11 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .cartao h3 { font-size: 1rem; margin: 16px 0 4px; }
 .lista-simples { list-style: none; margin: 0; padding: 0; }
 .lista-simples a, .lista-simples > li > span {
-  display: flex; align-items: center; gap: 10px; min-height: var(--toque); padding: 6px 0;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; min-height: var(--toque); padding: 6px 0;
   border-bottom: 1px solid var(--borda); color: inherit; text-decoration: none; font-variant-numeric: tabular-nums;
 }
 .lista-simples li:last-child a { border-bottom: 0; }
-.lista-simples-nome { flex: 1; min-width: 0; display: flex; flex-direction: column; font-weight: 600; }
+.lista-simples-nome { flex: 1; display: flex; flex-direction: column; font-weight: 600; }
 .lista-simples-nome .texto-suave { font-weight: 400; }
 .barra-nome { display: inline-flex; align-items: center; gap: 8px; }
 .figura-grafico { margin: 0 0 8px; }
@@ -435,7 +454,7 @@ h1 { font-size: 1.75rem; font-weight: 750; letter-spacing: -0.02em; }
 .inicio-topo { display: flex; align-items: center; gap: 8px; }
 .inicio-topo .seletor-mes { flex: 1; margin-bottom: 0; }
 .engrenagem { background: var(--superficie); color: var(--texto); box-shadow: var(--sombra); }
-.inicio-total { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin: 8px 0 14px; }
+.inicio-total { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 4px 12px; margin: 8px 0 14px; }
 .inicio-total .metrica { background: transparent; box-shadow: none; padding: 0; }
 .inicio-total .metrica-destaque .metrica-valor { font-size: 2rem; font-weight: 750; letter-spacing: -0.02em; }
 .variacao { display: inline-flex; align-items: center; min-height: var(--toque); font-size: 0.875rem; font-weight: 650; text-decoration: none; white-space: nowrap; }
@@ -447,6 +466,8 @@ h1 { font-size: 1.75rem; font-weight: 750; letter-spacing: -0.02em; }
   margin: 0 -16px; padding: 4px 16px 14px; scroll-padding-inline: 16px;
 }
 .carrossel::-webkit-scrollbar { display: none; }
+/* Sem outro cartão para espiar na borda, o único ocupa a largura do conteúdo (limitada e centralizada no PC). */
+.cartao-banco:only-child { width: 100%; max-width: 560px; margin-inline: auto; }
 .cartao-banco {
   flex: none; width: min(300px, 82vw); min-height: 176px; scroll-snap-align: start;
   display: flex; flex-direction: column; justify-content: space-between;
@@ -462,7 +483,8 @@ h1 { font-size: 1.75rem; font-weight: 750; letter-spacing: -0.02em; }
 .cartao-banco-rodape { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 12px; font-size: 0.78125rem; }
 .cartao-banco-pagar {
   flex: none; min-height: var(--toque); padding: 0 14px; border-radius: 22px; cursor: pointer;
-  border: 1px solid rgba(255, 255, 255, 0.6); background: rgba(255, 255, 255, 0.16); color: #ffffff; font-weight: 650; white-space: nowrap;
+  /* Branco sólido com o texto na cor do banco (vem do componente): mesmo contraste do texto branco no cartão. */
+  border: 0; background: #ffffff; font-weight: 650; white-space: nowrap;
 }
 .cartao-banco-pago { flex: none; padding: 4px 10px; border-radius: 999px; background: rgba(255, 255, 255, 0.22); font-weight: 650; }
 @media (prefers-reduced-motion: no-preference) { .carrossel { scroll-behavior: smooth; } }
@@ -481,14 +503,13 @@ h1 { font-size: 1.75rem; font-weight: 750; letter-spacing: -0.02em; }
 }
 
 /* Indicadores */
-.indicadores { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 12px 0; }
+.indicadores { margin: 12px 0; }
 .indicadores a {
   display: flex; flex-direction: column; gap: 2px; min-height: 60px; padding: 10px 12px; border-radius: 14px;
   background: var(--superficie); box-shadow: var(--sombra); color: var(--texto); text-decoration: none; min-width: 0;
 }
 .indicadores span { font-size: 0.75rem; color: var(--texto-2); }
 .indicadores strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cartoes-resumo { grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); }
 
 /* Lançamentos: meios como avatares, situação segmentada, linhas em cartões */
 .chips-avatares { gap: 12px; padding-top: 8px; padding-bottom: 8px; }

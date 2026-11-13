@@ -5,6 +5,7 @@ import { compararComAnterior, compromissosFuturos, evolucao, gastosPorMeio, type
 import { detalhar } from '../../dominio/resumo';
 import type { Centavos, MesISO } from '../../dominio/tipos';
 import { LogoMeio } from '../componentes/Logo';
+import { ValorQueCabe } from '../componentes/ValorQueCabe';
 import { SeletorMes } from '../componentes/SeletorMes';
 import { usarHoje, usarMes } from '../contexto';
 import type { Estado } from '../estado';
@@ -180,11 +181,11 @@ export function Analise({ estado }: { estado: Estado }) {
         <div class="cartoes-resumo">
           <div class="metrica">
             <span class="metrica-rotulo">Fixos por mês</span>
-            <span class="metrica-valor">{formatarReais(compromissos.fixosMensal)}</span>
+            <ValorQueCabe class="metrica-valor">{formatarReais(compromissos.fixosMensal)}</ValorQueCabe>
           </div>
           <div class="metrica">
             <span class="metrica-rotulo">Variáveis (estimado)</span>
-            <span class="metrica-valor">{formatarReais(compromissos.variaveisEstimado)}</span>
+            <ValorQueCabe class="metrica-valor">{formatarReais(compromissos.variaveisEstimado)}</ValorQueCabe>
           </div>
         </div>
         {compromissos.parceladas.length > 0 ? (

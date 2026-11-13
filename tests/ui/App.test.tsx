@@ -1,11 +1,14 @@
 import { render, screen, within } from '@testing-library/preact';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { JuliusDB } from '../../src/dados/db';
-import { App } from '../../src/ui/App';
+import { inicializarPadrao } from '../../src/dados/repositorio';
+import { App, LimiteDeErro } from '../../src/ui/App';
+import { ErroLeitura } from '../../src/ui/consulta';
 import { HOJE, novaBase } from './auxiliar';
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
   location.hash = '';
 });
 
@@ -25,6 +28,45 @@ describe('App', () => {
     render(<App base={base} hoje={HOJE} />);
     expect(await screen.findByRole('heading', { name: 'Não foi possível abrir seus dados' })).toBeInTheDocument();
     expect(screen.queryByText('Carregando…')).toBeNull();
+  });
+
+  it('sem crypto.randomUUID (http na rede local), a nova despesa abre normalmente', async () => {
+    const base = await novaBase();
+    await inicializarPadrao(base);
+    // Como o Safari por http://192.168.x.x: getRandomValues existe, randomUUID não.
+    const real = globalThis.crypto;
+    vi.stubGlobal('crypto', { getRandomValues: real.getRandomValues.bind(real) });
+    location.hash = '#/nova';
+    render(<App base={base} hoje={HOJE} />);
+    expect(await screen.findByRole('heading', { name: 'Nova despesa' })).toBeInTheDocument();
+  });
+
+  it('erro ao desenhar uma tela não é confundido com armazenamento bloqueado', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const Explode = () => {
+      throw new TypeError('falha de programação');
+    };
+    render(
+      <LimiteDeErro>
+        <Explode />
+      </LimiteDeErro>,
+    );
+    expect(screen.getByRole('heading', { name: 'Algo deu errado nesta tela' })).toBeInTheDocument();
+    expect(screen.queryByText(/janelas privadas/)).toBeNull();
+    expect(screen.getByRole('button', { name: 'Voltar ao início' })).toBeInTheDocument();
+  });
+
+  it('falha de leitura dos dados continua com a mensagem de armazenamento', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const FalhaLeitura = () => {
+      throw new ErroLeitura(new Error('IDB'));
+    };
+    render(
+      <LimiteDeErro>
+        <FalhaLeitura />
+      </LimiteDeErro>,
+    );
+    expect(screen.getByRole('heading', { name: 'Não foi possível abrir seus dados' })).toBeInTheDocument();
   });
 
   it('abre e mostra a navegação principal', async () => {

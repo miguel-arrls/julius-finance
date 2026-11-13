@@ -8,6 +8,7 @@ import { filtrar } from '../../dominio/filtros';
 import { detalhar, faturasDoMes, valorEfetivo, type Fatura, type ItemLista } from '../../dominio/resumo';
 import type { Situacao, TipoDespesa } from '../../dominio/tipos';
 import { compartilharOuBaixar } from '../arquivo';
+import { Campo } from '../componentes/Campo';
 import { Chips, type OpcaoChip } from '../componentes/Chips';
 import { EstadoVazio } from '../componentes/EstadoVazio';
 import { LinhaLancamento } from '../componentes/LinhaLancamento';
@@ -128,17 +129,20 @@ export function Lancamentos({ estado, filtros = {} }: { estado: Estado; filtros?
   return (
     <>
       <h1>Lançamentos</h1>
-      <input
-        type="search"
-        class="busca"
-        aria-label="Buscar"
-        placeholder="Buscar por nome, loja ou marca"
-        value={texto}
-        onInput={(e) => setTexto(e.currentTarget.value)}
-      />
+      <Campo id="l-busca" rotulo="Buscar">
+        <input
+          id="l-busca"
+          type="search"
+          class="busca"
+          placeholder="Nome, loja ou marca"
+          value={texto}
+          onInput={(e) => setTexto(e.currentTarget.value)}
+        />
+      </Campo>
       <div class="filtros">
-        <select
-          aria-label="Mês"
+        <label class="filtro-rotulado">
+          <span>Mês</span>
+          <select
           class={todosMeses ? '' : 'ativo'}
           value={todosMeses ? '' : mes}
           onChange={(e) => {
@@ -157,7 +161,8 @@ export function Lancamentos({ estado, filtros = {} }: { estado: Estado; filtros?
               {formatarMesCurto(m)}
             </option>
           ))}
-        </select>
+          </select>
+        </label>
         <button type="button" class={`chip${maisFiltros ? ' chip-aberto' : ''}`} aria-expanded={maisFiltros} aria-controls="mais-filtros" onClick={() => setMaisFiltros(!maisFiltros)}>
           <IconAdjustmentsHorizontal size={18} aria-hidden="true" />
           {qtdFiltros > 0 ? `Filtros (${qtdFiltros})` : 'Filtros'}

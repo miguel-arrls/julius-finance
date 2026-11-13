@@ -16,7 +16,26 @@ npm run e2e            # Playwright WebKit (motor do Safari)
 node scripts/verificar-build.mjs   # confere CSP, manifest, SW e ícones no dist/
 npm run marcas         # regenera src/marcas/catalogo.gerado.ts (simple-icons)
 npm run dados-iniciais # dados-locais/definicao.json → dados-locais/contas-iniciais.json
+npm run test:py        # testes do scripts/limpar_prints.py (Python 3.14, só biblioteca padrão)
+npm run limpar-prints  # apaga falhas de print com mais de 7 dias e referências órfãs (--simular para ver antes)
 ```
+
+## Matriz de layout (vale para toda mudança de interface)
+
+`npm run e2e` inclui `e2e/layout.spec.ts`: cenários de dados (`e2e/layout/cenarios.ts`, sintéticos) × larguras
+(320 a 1280) × claro/escuro × todas as telas (`e2e/layout/matriz.json`), cada combinação verificada pelas regras
+genéricas de `e2e/layout/invariantes.ts` (rolagem lateral, conteúdo/texto fora da caixa, interativos sobrepostos,
+alvo < 44 px, campo sem rótulo visível, faixa "preencher" com sobra, erro de JS) e por axe-core (WCAG 2.1 A/AA).
+
+- Não escreva teste de layout para um caso: se um bug visual escapou, falta uma **regra** em `invariantes.ts`.
+  Toda regra nova ganha a sua sabotagem em `e2e/layout-sabotagem.spec.ts` (o bug reintroduzido tem de reprovar).
+- Tela ou estado novo: uma linha em `matriz.json` + o caminho em `TELAS` (`layout.spec.ts`); um teste confere os dois.
+- Exceção é declarada no HTML, não no teste: `data-layout="preencher"` (faixa que deve ocupar a largura) e
+  `data-layout="livre"` (decoração que pode sair da caixa).
+- Prints: fora do repositório, em `C:\VBCODE\julius-finance-prints` (`referencia/` aprovados; `falhas/<execução>/`
+  esperado/atual/diferença). Comparação só local (o CI é Linux, com outras fontes). Mudança visual intencional:
+  conferir os `-diff.png` e aprovar com `npx playwright test e2e/layout.spec.ts --update-snapshots`.
+- Dados e "hoje" dos testes são fixos (`HOJE`/`AGORA` em `cenarios.ts`, relógio congelado): print muda só se a tela mudar.
 
 ## Arquitetura
 

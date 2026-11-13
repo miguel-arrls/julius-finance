@@ -1,4 +1,5 @@
 import { IconEdit, IconTrash } from '@tabler/icons-preact';
+import { novoId } from '../../dados/ids';
 import { useState } from 'preact/hooks';
 import { excluirMarca, salvarMarca } from '../../dados/repositorio';
 import { ErroDominio, type Marca } from '../../dominio/tipos';
@@ -126,7 +127,7 @@ export function Marcas({ estado }: { estado: Estado }) {
       {editando ? (
         <EditorMarca key={editando.id} inicial={editando} aoFechar={() => setEditando(null)} />
       ) : (
-        <button type="button" class="botao botao-primario" onClick={() => setEditando({ id: crypto.randomUUID(), nome: '', apelidos: [] })}>
+        <button type="button" class="botao botao-primario" onClick={() => setEditando({ id: novoId(), nome: '', apelidos: [] })}>
           Nova marca
         </button>
       )}
