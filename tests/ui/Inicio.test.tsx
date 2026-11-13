@@ -153,7 +153,20 @@ describe('Início: resumo de insights', () => {
     expect(link).toBeDefined();
     // A cobrança de 10/09 vence em 07/10 no cartão: setembro fica vazio e não há percentual.
     expect(link.textContent).toMatch(/^Ver a análise do mês/);
-    expect(link.textContent).toContain('maior aumento: Moradia');
+    expect(link.textContent).toContain(' · Maior alta: Moradia');
+  });
+
+  it('com mês anterior, diz de quê é o percentual nos três lugares', async () => {
+    await popular();
+    await repo.salvarDespesa(base, avulsa({ id: 'set', descricao: 'Mercado', vencimento: '2026-09-05', mes: '2026-09', valor: 10000 }), { hoje: HOJE });
+    abrir();
+    const aviso = (await screen.findAllByRole('link')).find((a) => a.classList.contains('aviso-insight'))!;
+    // Outubro: R$ 139,90 contra R$ 100,00 em setembro.
+    expect(aviso.textContent).toMatch(/^Gastos 40% maiores que em set\/2026 · Maior alta: /);
+    expect(document.querySelector('.variacao')?.textContent).toBe('Gastos 40% maiores que em set/2026');
+    const indicador = document.querySelector('.indicadores a')!;
+    expect(indicador.textContent).toContain('Gastos vs set/2026');
+    expect(indicador.textContent).toContain('+40%');
   });
 });
 

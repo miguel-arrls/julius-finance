@@ -52,6 +52,14 @@ const SABOTAGENS: Sabotagem[] = [
     css: '.linha-titulo { white-space: nowrap !important; overflow: visible !important; text-overflow: clip !important; }',
   },
   {
+    regra: REGRAS.respiro,
+    bug: 'barras de "Gastos por categoria" coladas na borda da caixa, sem margem interna (bug de 12/11/2026)',
+    cenario: 'tipico',
+    largura: 390,
+    rota: '#/inicio',
+    css: '.barras.cartao { padding: 0 !important; }',
+  },
+  {
     regra: REGRAS.alvo,
     bug: 'engrenagem de Ajustes com 24 px',
     cenario: 'tipico',

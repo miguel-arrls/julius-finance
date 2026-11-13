@@ -26,7 +26,7 @@ import { usarToast } from '../componentes/Toast';
 import { usarBase, usarHoje, usarMes } from '../contexto';
 import type { Estado } from '../estado';
 import { caminho, type FiltrosRota } from '../rota';
-import { formatarPercentual, formatarVariacao, plural } from '../textos';
+import { descreverGastosVsMes, formatarPercentual, formatarVariacao, plural } from '../textos';
 
 const MENSAGEM_FALHA = 'Não foi possível marcar como paga. Tente de novo.';
 
@@ -80,9 +80,9 @@ export function Inicio({ estado }: { estado: Estado }) {
   const maiorAumento = comparacao.porCategoria.find((c) => c.variacao > 0);
   const resumoInsight = [
     comparacao.percentual !== null
-      ? `${formatarPercentual(comparacao.percentual)} vs ${formatarMesCurto(somarMesesAoMes(mes, -1))}`
+      ? descreverGastosVsMes(comparacao.percentual, formatarMesCurto(somarMesesAoMes(mes, -1)))
       : 'Ver a análise do mês',
-    maiorAumento && `maior aumento: ${categorias.get(maiorAumento.categoriaId)?.nome ?? 'Sem categoria'} (${formatarVariacao(maiorAumento.variacao)})`,
+    maiorAumento && `Maior alta: ${categorias.get(maiorAumento.categoriaId)?.nome ?? 'Sem categoria'} (${formatarVariacao(maiorAumento.variacao)})`,
   ]
     .filter(Boolean)
     .join(' · ');
@@ -129,7 +129,7 @@ export function Inicio({ estado }: { estado: Estado }) {
         <Metrica rotulo="Total do mês" valor={resumo.total} destaque href={lista({})} />
         {comparacao.percentual !== null && (
           <a class={`variacao ${comparacao.variacao > 0 ? 'negativo' : comparacao.variacao < 0 ? 'positivo' : ''}`} href="#/analise">
-            {formatarPercentual(comparacao.percentual)} vs {formatarMesCurto(anterior)}
+            {descreverGastosVsMes(comparacao.percentual, formatarMesCurto(anterior))}
           </a>
         )}
       </section>
@@ -150,7 +150,7 @@ export function Inicio({ estado }: { estado: Estado }) {
       {doMes.length > 0 && (
         <div class="indicadores">
           <a href="#/analise">
-            <span>vs {formatarMesCurto(anterior)}</span>
+            <span>Gastos vs {formatarMesCurto(anterior)}</span>
             <strong class={comparacao.variacao > 0 ? 'negativo' : comparacao.variacao < 0 ? 'positivo' : ''}>
               {comparacao.percentual !== null ? formatarPercentual(comparacao.percentual) : 'sem base'}
             </strong>

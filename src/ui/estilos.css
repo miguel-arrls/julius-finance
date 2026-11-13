@@ -115,7 +115,12 @@ button, input, select, textarea { font: inherit; color: inherit; }
     flex-direction: column; justify-content: flex-start; align-items: stretch; gap: 4px;
     padding: 24px 12px; border-top: 0; border-right: 1px solid var(--borda);
   }
-  .nav-marca { display: block; font-size: 1.25rem; font-weight: 700; padding: 0 12px 16px; }
+  .nav-marca {
+    display: flex; align-items: center; gap: 10px; min-height: var(--toque); margin-bottom: 12px; padding: 0 12px;
+    border-radius: var(--raio-pequeno); color: var(--texto); text-decoration: none; font-size: 1.25rem; font-weight: 700;
+  }
+  .nav-marca:hover { background: var(--superficie-2); }
+  .logo-julius { flex: none; }
   .nav-item { flex: none; flex-direction: row; gap: 12px; padding: 10px 12px; border-radius: var(--raio-pequeno); font-size: 1rem; }
   .nav-item[aria-current='page'] { background: var(--superficie-2); }
   .nav-so-largo { display: flex; }
@@ -207,7 +212,9 @@ button, input, select, textarea { font: inherit; color: inherit; }
 /* Início */
 .seletor-mes { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
 .seletor-mes-titulo { margin: 0; font-size: 1.25rem; text-align: center; }
-.barras { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
+.barras { list-style: none; margin: 0; display: flex; flex-direction: column; gap: 10px; }
+/* Dentro de .cartao o respiro vem do padding do cartão; zerar aqui o anularia (mesma especificidade, vem depois). */
+.barras:not(.cartao) { padding: 0; }
 .barra-topo { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 0.875rem; }
 .barra-topo h2 { margin: 0; }
 .barra-trilho { height: 8px; border-radius: 4px; background: var(--superficie-2); overflow: hidden; }

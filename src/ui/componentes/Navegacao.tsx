@@ -1,5 +1,6 @@
 import { IconChartBar, IconHome, IconListDetails, IconPlus, IconRepeat, IconSettings } from '@tabler/icons-preact';
 import type { Rota } from '../rota';
+import { LogoJulius } from './LogoJulius';
 
 type Grupo = 'inicio' | 'lancamentos' | 'nova' | 'despesas' | 'analise' | 'ajustes';
 
@@ -21,7 +22,10 @@ export function Navegacao({ rota }: { rota: Rota }) {
   const atual = grupoDaRota(rota.tela);
   return (
     <nav class="navegacao" aria-label="Principal">
-      <span class="nav-marca">Julius</span>
+      <a href="#/inicio" class="nav-marca">
+        <LogoJulius />
+        <span>Julius</span>
+      </a>
       <a href="#/nova" class="nav-nova" aria-label="Nova despesa" aria-current={atual === 'nova' ? 'page' : undefined}>
         <IconPlus size={28} stroke={2.2} aria-hidden="true" />
         <span class="nav-nova-rotulo">Nova despesa</span>

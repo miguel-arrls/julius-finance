@@ -18,6 +18,7 @@ export interface Violacao {
 export const REGRAS = {
   rolagem: 'sem rolagem lateral da página',
   caixa: 'conteúdo dentro da caixa que o contém',
+  respiro: 'texto com respiro da lateral da caixa que o contém',
   sobreposicao: 'interativos não se sobrepõem',
   alvo: 'alvo de toque com pelo menos 44 px',
   rotulo: 'campo com rótulo visível',
@@ -133,6 +134,46 @@ function verificarNaPagina(regras: typeof REGRAS): Violacao[] {
     if (fora > TOL) blocosVazados.set(bloco, Math.max(fora, blocosVazados.get(bloco) ?? 0));
   }
   for (const [bloco, fora] of blocosVazados) v.push({ regra: regras.caixa, elemento: descrever(bloco), detalhe: `o texto passa ${Math.round(fora)}px da caixa` });
+
+  // 2c. Respiro: texto não encosta na lateral da caixa desenhada (cartão, lista, botão) que o contém.
+  // Pega o `padding: 0` herdado por engano, que a regra 2 não vê porque o conteúdo ainda cabe na caixa.
+  // Só conta caixa fechada (fundo, sombra ou bordas dos dois lados): linha com borda só embaixo é separador.
+  // O limite é "encostado" (< 4 px), a classe do bug; apertado mas com padding próprio não é o alvo.
+  const RESPIRO = 4;
+  const caixaFechada = (e: Element) => {
+    const s = estilo(e);
+    const fundo = s.backgroundColor !== 'rgba(0, 0, 0, 0)' && s.backgroundColor !== 'transparent';
+    const laterais = parseFloat(s.borderLeftWidth) > 0 && parseFloat(s.borderRightWidth) > 0;
+    return fundo || laterais || s.boxShadow !== 'none';
+  };
+  const encostados = new Map<Element, { caixa: Element; folga: number }>();
+  const textos2 = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  for (let n = textos2.nextNode(); n; n = textos2.nextNode()) {
+    const pai = n.parentElement;
+    if (!pai || !(n.textContent ?? '').trim() || !visivel(pai) || flutuante(pai) || pai.closest('[data-layout="livre"]')) continue;
+    let caixa: Element | null = null;
+    for (let a: Element | null = pai; a && a !== document.body; a = a.parentElement) {
+      if (rolavelX(a)) break;
+      if (caixaFechada(a)) {
+        caixa = a;
+        break;
+      }
+    }
+    if (!caixa) continue;
+    // Texto cortado com reticências: o retângulo medido é o do texto inteiro, não o que aparece.
+    let bloco: Element = pai;
+    while (['inline', 'contents'].includes(estilo(bloco).display) && bloco.parentElement) bloco = bloco.parentElement;
+    if (recorta(bloco)) continue;
+    const intervalo = document.createRange();
+    intervalo.selectNodeContents(n);
+    const t = intervalo.getBoundingClientRect();
+    const c = caixa.getBoundingClientRect();
+    const folga = Math.min(t.left - c.left, c.right - t.right);
+    if (folga >= 0 && folga < RESPIRO && folga < (encostados.get(caixa)?.folga ?? Infinity)) encostados.set(caixa, { caixa, folga });
+  }
+  for (const { caixa, folga } of encostados.values()) {
+    v.push({ regra: regras.respiro, elemento: descrever(caixa), detalhe: `texto a ${Math.round(folga)}px da lateral (mínimo ${RESPIRO}px)` });
+  }
 
   // 3 e 4. Interativos: sobreposição e tamanho do alvo.
   const interativos = todos.filter(

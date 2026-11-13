@@ -77,6 +77,17 @@ describe('App', () => {
     }
   });
 
+  it('a marca Julius na lateral é um link para o início, com o ícone do app', async () => {
+    location.hash = '#/ajustes';
+    render(<App base={await novaBase()} hoje={HOJE} />);
+    const nav = await screen.findByRole('navigation', { name: 'Principal' });
+    const marca = within(nav).getByRole('link', { name: 'Julius' });
+    expect(marca).toHaveAttribute('href', '#/inicio');
+    const icone = marca.querySelector('svg');
+    expect(icone).not.toBeNull();
+    expect(icone).toHaveAttribute('aria-hidden', 'true');
+  });
+
   it('marca o grupo da rota atual com aria-current', async () => {
     location.hash = '#/despesas/x';
     render(<App base={await novaBase()} hoje={HOJE} />);

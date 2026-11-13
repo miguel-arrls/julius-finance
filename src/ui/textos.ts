@@ -139,6 +139,18 @@ export function formatarPercentual(fracao: number): string {
   return PERCENTUAL.format(fracao);
 }
 
+const PERCENTUAL_ABSOLUTO = new Intl.NumberFormat('pt-BR', { style: 'percent', maximumFractionDigits: 0 });
+
+/**
+ * Diz de quê é o percentual, sem depender de sinal: -0.2 → "Gastos 20% menores que em dez/2026".
+ * Variação que arredonda para 0% vira "iguais", para não escrever "0% maiores".
+ */
+export function descreverGastosVsMes(fracao: number, mesCurto: string): string {
+  const p = PERCENTUAL_ABSOLUTO.format(Math.abs(fracao));
+  if (p === '0%') return `Gastos iguais aos de ${mesCurto}`;
+  return `Gastos ${p} ${fracao > 0 ? 'maiores' : 'menores'} que em ${mesCurto}`;
+}
+
 /** Variação em reais com sinal: 1500 → "+R$ 15,00"; -1500 → "-R$ 15,00". */
 export function formatarVariacao(c: Centavos): string {
   if (c === 0) return formatarReais(0);
