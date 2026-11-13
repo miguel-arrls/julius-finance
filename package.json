@@ -10,6 +10,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "playwright test",
+    "test:py": "py -3 -B -m unittest discover -s tests/scripts -p \"test_*.py\"",
+    "limpar-prints": "py -3 -B scripts/limpar_prints.py",
     "marcas": "node scripts/gerar-catalogo-marcas.mjs",
     "dados-iniciais": "tsx scripts/gerar-dados-iniciais.ts"
   },
@@ -19,6 +21,7 @@
     "preact": "^10.29.8"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.14.0",
     "@playwright/test": "^1.63.0",
     "@preact/preset-vite": "^2.10.6",
     "@testing-library/jest-dom": "^7.0.1",

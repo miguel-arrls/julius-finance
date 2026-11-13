@@ -90,7 +90,9 @@ describe('Início', () => {
     );
     await repo.marcarPaga(base, 'r3@2026-09', '2026-10-01');
     abrir();
-    fireEvent.click(await screen.findByRole('button', { name: 'Marcar fatura como paga' }));
+    // O nome acessível contém o texto visível (WCAG 2.5.3); o cartão em volta diz de qual banco é.
+    const doCartao = await screen.findByRole('article', { name: `Cartão ${CARTAO.nome}` });
+    fireEvent.click(within(doCartao).getByRole('button', { name: 'Pagar fatura' }));
     expect(await screen.findByText('Fatura paga')).toBeInTheDocument();
     expect((await base.lancamentos.get('r@2026-09'))!.pagoEm).toBe(HOJE);
     expect((await base.lancamentos.get('r2@2026-09'))!.pagoEm).toBe(HOJE);
@@ -126,5 +128,93 @@ describe('Início', () => {
     abrir();
     expect(await screen.findByText('1 despesa tem dados a confirmar')).toBeInTheDocument();
     expect(screen.getByText('Faça um backup: seus dados ficam só neste aparelho.')).toBeInTheDocument();
+  });
+});
+
+describe('Início: o resumo leva à lista filtrada', () => {
+  it('métricas, categorias e fatura são links com os filtros do mês', async () => {
+    await popular();
+    abrir();
+    await screen.findByText('Gastos por categoria');
+    expect(metrica('Total do mês')).toHaveAttribute('href', '#/lancamentos?mes=2026-10');
+    expect(metrica('Pago')).toHaveAttribute('href', '#/lancamentos?mes=2026-10&situacao=paga');
+    expect(metrica('1 atrasada')).toHaveAttribute('href', '#/lancamentos?mes=2026-10&situacao=atrasada');
+    expect(screen.getByRole('link', { name: /^Moradia/ })).toHaveAttribute('href', '#/lancamentos?mes=2026-10&categoria=cat-moradia');
+    const cartao = screen.getByRole('article', { name: `Cartão ${CARTAO.nome}` });
+    expect(within(cartao).getAllByRole('link')[0]).toHaveAttribute('href', `#/lancamentos?mes=2026-10&meio=${CARTAO.id}`);
+  });
+});
+
+describe('Início: resumo de insights', () => {
+  it('leva à Análise; sem mês anterior, convida a ver a análise', async () => {
+    await popular();
+    abrir();
+    const link = (await screen.findAllByRole('link')).find((a) => a.classList.contains('aviso-insight'))!;
+    expect(link).toBeDefined();
+    // A cobrança de 10/09 vence em 07/10 no cartão: setembro fica vazio e não há percentual.
+    expect(link.textContent).toMatch(/^Ver a análise do mês/);
+    expect(link.textContent).toContain(' · Maior alta: Moradia');
+  });
+
+  it('com mês anterior, diz de quê é o percentual nos três lugares', async () => {
+    await popular();
+    await repo.salvarDespesa(base, avulsa({ id: 'set', descricao: 'Mercado', vencimento: '2026-09-05', mes: '2026-09', valor: 10000 }), { hoje: HOJE });
+    abrir();
+    const aviso = (await screen.findAllByRole('link')).find((a) => a.classList.contains('aviso-insight'))!;
+    // Outubro: R$ 139,90 contra R$ 100,00 em setembro.
+    expect(aviso.textContent).toMatch(/^Gastos 40% maiores que em set\/2026 · Maior alta: /);
+    expect(document.querySelector('.variacao')?.textContent).toBe('Gastos 40% maiores que em set/2026');
+    const indicador = document.querySelector('.indicadores a')!;
+    expect(indicador.textContent).toContain('Gastos vs set/2026');
+    expect(indicador.textContent).toContain('+40%');
+  });
+});
+
+describe('Início: alertas de contas atrasadas', () => {
+  beforeEach(async () => {
+    await repo.inicializarPadrao(base);
+  });
+
+  it('até duas: um alerta por conta, cada um com Pagar', async () => {
+    await repo.salvarDespesa(base, avulsa({ id: 'x', descricao: 'Farmácia ⟦a⟧', valor: 6320, vencimento: '2026-10-03' }), { hoje: HOJE });
+    await repo.salvarDespesa(base, avulsa({ id: 'y', descricao: 'Padaria', valor: 1000, vencimento: '2026-10-04' }), { hoje: HOJE });
+    abrir();
+    const alerta = await screen.findByRole('region', { name: 'Farmácia ⟦a⟧ atrasada' });
+    expect(alerta.textContent).toContain('venceu 03/10');
+    expect(screen.getByRole('region', { name: 'Padaria atrasada' })).toBeInTheDocument();
+    fireEvent.click(within(alerta).getByRole('button', { name: 'Pagar Farmácia ⟦a⟧' }));
+    await waitFor(async () => expect((await base.lancamentos.get('x#1'))!.pagoEm).toBe(HOJE));
+  });
+
+  it('três ou mais: um alerta só, com total e link para todas as atrasadas', async () => {
+    for (const [id, dia] of [['x', '01'], ['y', '02'], ['z', '03']] as const) {
+      await repo.salvarDespesa(base, avulsa({ id, descricao: `Conta ${id}`, valor: 1000, vencimento: `2026-10-${dia}` }), { hoje: HOJE });
+    }
+    abrir();
+    const alerta = await screen.findByRole('region', { name: 'Contas atrasadas' });
+    expect(alerta.textContent).toContain('3 contas atrasadas');
+    expect(within(alerta).getByRole('link', { name: 'Ver' })).toHaveAttribute('href', '#/lancamentos?mes=todos&situacao=atrasada');
+    expect(screen.queryByRole('button', { name: /^Pagar Conta/ })).toBeNull();
+  });
+
+  it('a engrenagem leva a Ajustes', async () => {
+    await popular();
+    abrir();
+    expect(await screen.findByRole('link', { name: 'Ajustes' })).toHaveAttribute('href', '#/ajustes');
+  });
+});
+
+describe('Início: carrossel de cartões', () => {
+  it('mostra a fatura que vence no dia do cartão, com fechamento e botão de pagar', async () => {
+    await repo.inicializarPadrao(base);
+    await repo.salvarMeio(base, CARTAO, HOJE); // fecha 2, vence 7
+    // Vencimento digitado à mão (05/10) e a fatura principal (07/10).
+    await repo.salvarDespesa(base, avulsa({ id: 'm', descricao: 'Manual', valor: 1000, vencimento: '2026-10-05', meioPagamentoId: CARTAO.id }), { hoje: HOJE });
+    await repo.salvarDespesa(base, avulsa({ id: 'p', descricao: 'Principal', valor: 2000, vencimento: '2026-10-07', meioPagamentoId: CARTAO.id }), { hoje: HOJE });
+    abrir();
+    const cartao = await screen.findByRole('article', { name: `Cartão ${CARTAO.nome}` });
+    expect(cartao.textContent).toContain('Fecha 02/10');
+    expect(cartao.textContent).toContain('Vence 07/10');
+    expect(cartao.textContent).toContain('R$ 30,00');
   });
 });

@@ -4,9 +4,10 @@ import {
   montarDespesa,
   mudouCobranca,
   previa,
+  aplicarFatura,
   resolverMarca,
-  sugerirVencimento,
   validar,
+  vencimentoPelaFatura,
   valoresDeDespesa,
   valoresIniciais,
   type ValoresForm,
@@ -70,12 +71,6 @@ describe('montarDespesa', () => {
 });
 
 describe('auxiliares', () => {
-  it('sugerirVencimento só para cartão com dias', () => {
-    expect(sugerirVencimento('2026-10-02', CARTAO)).toBe('2026-11-07');
-    expect(sugerirVencimento('2026-10-02', PIX)).toBeUndefined();
-    expect(sugerirVencimento('', CARTAO)).toBeUndefined();
-  });
-
   it('resolverMarca', () => {
     const marcas = [{ id: 'm1', nome: 'Loja do Bairro', apelidos: ['Lojinha'] }, { id: 'm2', nome: 'Spotify', apelidos: [], logoSlug: 'spotify' }];
     const id = () => 'novo';
@@ -125,6 +120,55 @@ describe('auxiliares', () => {
     const p = previa(recorrente({ inicio: '2026-08-08' }), undefined, '2026-10-06');
     expect(p.lancamentos.map((l) => l.dataCobranca)).toEqual(['2026-10-08', '2026-11-08', '2026-12-08']);
     expect(p.anteriores).toBe(2);
+  });
+});
+
+describe('vencimento pela fatura do cartão', () => {
+  const parc = (o: Partial<ValoresForm>) => v({ tipo: 'parcelada', numParcelas: '12', ...o });
+
+  it('avulsa: a data da compra decide a fatura (no dia do fechamento vai para a seguinte)', () => {
+    expect(vencimentoPelaFatura(v({ dataCompra: '2026-10-01' }), CARTAO)).toBe('2026-10-07');
+    expect(vencimentoPelaFatura(v({ dataCompra: '2026-10-02' }), CARTAO)).toBe('2026-11-07');
+  });
+
+  it('avulsa sem data da compra: dia de vencimento do cartão no mês da fatura', () => {
+    expect(vencimentoPelaFatura(v({ dataCompra: '', mes: '2026-12' }), CARTAO)).toBe('2026-12-07');
+    expect(vencimentoPelaFatura(v({ dataCompra: '', mes: '' }), CARTAO)).toBeUndefined();
+  });
+
+  it('parcelada que começa na parcela 11: vencimento da parcela 11, não da 1', () => {
+    expect(vencimentoPelaFatura(parc({ dataCompra: '2026-01-01', comecaNaParcela: '11' }), CARTAO)).toBe('2026-11-07');
+    expect(vencimentoPelaFatura(parc({ dataCompra: '2026-01-01', comecaNaParcela: '1' }), CARTAO)).toBe('2026-01-07');
+  });
+
+  it('parcelada sem data da compra: o mês informado já é o da parcela inicial', () => {
+    expect(vencimentoPelaFatura(parc({ dataCompra: '', mesPrimeira: '2026-11', comecaNaParcela: '11' }), CARTAO)).toBe('2026-11-07');
+  });
+
+  it('só para cartão de crédito com os dois dias', () => {
+    expect(vencimentoPelaFatura(v({ dataCompra: '2026-10-01' }), PIX)).toBeUndefined();
+    expect(vencimentoPelaFatura(v({ dataCompra: '2026-10-01' }), { ...CARTAO, diaFechamento: undefined })).toBeUndefined();
+    expect(vencimentoPelaFatura(v({ dataCompra: '2026-10-01' }), undefined)).toBeUndefined();
+  });
+
+  it('aplicarFatura preenche o vencimento só no modo automático e fora da recorrente', () => {
+    expect(aplicarFatura(v({ dataCompra: '2026-10-01', vencimento: '' }), CARTAO).vencimento).toBe('2026-10-07');
+    expect(aplicarFatura(parc({ dataCompra: '2026-10-01' }), CARTAO).primeiroVencimento).toBe('2026-10-07');
+    expect(aplicarFatura(v({ dataCompra: '2026-10-01', vencimento: '2026-12-15', vencimentoManual: true }), CARTAO).vencimento).toBe('2026-12-15');
+    expect(aplicarFatura(v({ dataCompra: '2026-10-01', vencimento: '2026-12-15' }), PIX).vencimento).toBe('2026-12-15');
+    const rec = v({ tipo: 'recorrente', inicio: '2026-10-01' });
+    expect(aplicarFatura(rec, CARTAO)).toEqual(rec);
+  });
+
+  it('editar: vencimento gravado diferente do calculado abre no modo manual, sem perder a data', () => {
+    const naRegra = avulsa({ meioPagamentoId: CARTAO.id, dataCompra: '2026-10-01', vencimento: '2026-10-07', mes: '2026-10' });
+    const foraDaRegra = avulsa({ meioPagamentoId: CARTAO.id, dataCompra: '2026-10-01', vencimento: '2026-12-15', mes: '2026-12' });
+    const aConfirmar = avulsa({ meioPagamentoId: CARTAO.id, vencimento: undefined, mes: '2026-12', aConfirmar: ['vencimento'] });
+    expect(valoresDeDespesa(naRegra, [], '2026-10', [CARTAO]).vencimentoManual).toBe(false);
+    expect(valoresDeDespesa(foraDaRegra, [], '2026-10', [CARTAO])).toMatchObject({ vencimentoManual: true, vencimento: '2026-12-15' });
+    expect(valoresDeDespesa(aConfirmar, [], '2026-10', [CARTAO]).vencimentoManual).toBe(false);
+    const parcForaDaRegra = parcelada({ meioPagamentoId: CARTAO.id, dataCompra: '2026-10-01', primeiroVencimento: '2026-10-20', mesPrimeira: '2026-10' });
+    expect(valoresDeDespesa(parcForaDaRegra, [], '2026-10', [CARTAO]).vencimentoManual).toBe(true);
   });
 });
 

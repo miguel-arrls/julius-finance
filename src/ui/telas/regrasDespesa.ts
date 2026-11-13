@@ -1,5 +1,6 @@
 import { vencimentoNoCartao } from '../../dominio/cartao';
-import { ehDataISO, ehMesISO, mesDe } from '../../dominio/datas';
+import { novoId as gerarId } from '../../dados/ids';
+import { dataNoMes, ehDataISO, ehMesISO, mesDe, somarMesesAoMes } from '../../dominio/datas';
 import { formatarNumero, lerReais } from '../../dominio/dinheiro';
 import { normalizar } from '../../dominio/filtros';
 import { gerarAvulsa, gerarParcelas } from '../../dominio/parcelas';
@@ -40,6 +41,8 @@ export interface ValoresForm {
   fim: string;
   valorVariavel: boolean;
   aConfirmar: CampoAConfirmar[];
+  /** No cartão, o vencimento vem da fatura; true quando o usuário preferiu digitar outro. */
+  vencimentoManual: boolean;
 }
 
 export type ErrosForm = Partial<Record<keyof ValoresForm, string>>;
@@ -53,11 +56,11 @@ export function valoresIniciais(mesAtual: MesISO): ValoresForm {
     valor: '', vencimento: '', mes: mesAtual,
     valorTotal: '', numParcelas: '2', valorParcela: '', primeiroVencimento: '', mesPrimeira: mesAtual, comecaNaParcela: '1',
     frequencia: 'mensal', inicio: '', fim: '', valorVariavel: false,
-    aConfirmar: [],
+    aConfirmar: [], vencimentoManual: false,
   };
 }
 
-export function valoresDeDespesa(d: Despesa, marcas: Marca[], mesAtual: MesISO): ValoresForm {
+export function valoresDeDespesa(d: Despesa, marcas: Marca[], mesAtual: MesISO, meios: MeioPagamento[] = []): ValoresForm {
   const v = valoresIniciais(mesAtual);
   v.tipo = d.tipo;
   v.descricao = d.descricao;
@@ -85,6 +88,26 @@ export function valoresDeDespesa(d: Despesa, marcas: Marca[], mesAtual: MesISO):
     v.inicio = d.inicio;
     v.fim = d.fim ?? '';
   }
+  // Vencimento gravado fora da regra da fatura foi escolha do usuário: abre no modo manual para não perdê-lo.
+  const gravado = d.tipo === 'avulsa' ? d.vencimento : d.tipo === 'parcelada' ? d.primeiroVencimento : undefined;
+  const pelaFatura = vencimentoPelaFatura(v, meios.find((m) => m.id === d.meioPagamentoId));
+  v.vencimentoManual = gravado !== undefined && pelaFatura !== undefined && gravado !== pelaFatura;
+  return v;
+}
+
+/** Valores para duplicar uma despesa: mesmos dados, datas limpas e começando do mês atual. */
+export function valoresDuplicados(d: Despesa, marcas: Marca[], mesAtual: MesISO): ValoresForm {
+  const v = valoresDeDespesa(d, marcas, mesAtual);
+  v.dataCompra = '';
+  v.vencimento = '';
+  v.mes = mesAtual;
+  v.primeiroVencimento = '';
+  v.mesPrimeira = mesAtual;
+  v.comecaNaParcela = '1';
+  v.inicio = '';
+  v.fim = '';
+  v.aConfirmar = [];
+  v.vencimentoManual = false;
   return v;
 }
 
@@ -189,9 +212,31 @@ export function montarDespesa(v: ValoresForm, ctx: { id: string; marcaId?: strin
   };
 }
 
-export function sugerirVencimento(dataCompra: string, meio?: MeioPagamento): DataISO | undefined {
-  if (!ehDataISO(dataCompra) || meio?.tipo !== 'credito' || !meio.diaFechamento || !meio.diaVencimento) return undefined;
-  return vencimentoNoCartao(dataCompra, meio.diaFechamento, meio.diaVencimento);
+/** Cartão de crédito com fechamento e vencimento cadastrados: só nele o vencimento sai da fatura. */
+export function cartaoComFatura(meio?: MeioPagamento): meio is MeioPagamento & { diaFechamento: number; diaVencimento: number } {
+  return meio?.tipo === 'credito' && !!meio.diaFechamento && !!meio.diaVencimento;
+}
+
+/**
+ * Vencimento da cobrança inicial (avulsa ou parcela `comecaNaParcela`) pela fatura do cartão.
+ * Com data da compra, vale a regra de fechamento; sem ela, o dia de vencimento do cartão no mês da fatura informado.
+ */
+export function vencimentoPelaFatura(v: ValoresForm, meio?: MeioPagamento): DataISO | undefined {
+  if (!cartaoComFatura(meio) || v.tipo === 'recorrente') return undefined;
+  const inicial = v.tipo === 'parcelada' ? (inteiro(v.comecaNaParcela) ?? 1) : 1;
+  if (ehDataISO(v.dataCompra)) {
+    const primeira = vencimentoNoCartao(v.dataCompra, meio.diaFechamento, meio.diaVencimento);
+    return dataNoMes(somarMesesAoMes(mesDe(primeira), Math.max(inicial, 1) - 1), meio.diaVencimento);
+  }
+  const mes = v.tipo === 'parcelada' ? v.mesPrimeira : v.mes;
+  return ehMesISO(mes) ? dataNoMes(mes, meio.diaVencimento) : undefined;
+}
+
+/** Valores com o vencimento da fatura aplicado (modo automático no cartão); fora disso, os mesmos valores. */
+export function aplicarFatura(v: ValoresForm, meio?: MeioPagamento): ValoresForm {
+  if (v.vencimentoManual || v.tipo === 'recorrente' || !cartaoComFatura(meio)) return v;
+  const vencimento = vencimentoPelaFatura(v, meio) ?? '';
+  return v.tipo === 'avulsa' ? { ...v, vencimento } : { ...v, primeiroVencimento: vencimento };
 }
 
 /**
@@ -202,7 +247,7 @@ export function resolverMarca(
   texto: string,
   descricao: string,
   marcas: Marca[],
-  novoId: () => string = () => crypto.randomUUID(),
+  novoId: () => string = gerarId,
 ): { marcaId?: string; nova?: Marca } {
   const t = texto.trim();
   if (t) {

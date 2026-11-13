@@ -1,6 +1,6 @@
 import { render } from '@testing-library/preact';
 import { describe, expect, it } from 'vitest';
-import { iniciais, Logo } from '../../src/ui/componentes/Logo';
+import { corDoMeio, iniciais, Logo, LogoMeio } from '../../src/ui/componentes/Logo';
 import { buscarNoCatalogo } from '../../src/marcas/identificar';
 
 describe('Logo', () => {
@@ -33,5 +33,25 @@ describe('Logo', () => {
     expect(iniciais('academia smart fit')).toBe('AS');
     expect(iniciais('Luz')).toBe('L');
     expect(iniciais('   ')).toBe('?');
+  });
+});
+
+describe('LogoMeio', () => {
+  it('banco com logo no catálogo: logo em branco na cor do banco', () => {
+    const { container } = render(<LogoMeio meio={{ nome: 'Roxinho', bancoSlug: 'nubank' }} />);
+    expect(container.querySelector('path')!.getAttribute('fill')).toBe('#ffffff');
+    expect((container.firstChild as HTMLElement).style.backgroundColor).toBe('rgb(130, 10, 209)');
+  });
+
+  it('banco sem logo: iniciais do banco; a cor escolhida vence a do banco', () => {
+    const { container } = render(<LogoMeio meio={{ nome: 'Meu cartão', bancoSlug: 'bancodobrasil', cor: '#0F766E' }} />);
+    expect(container.textContent).toBe('BD');
+    expect((container.firstChild as HTMLElement).style.backgroundColor).toBe('rgb(15, 118, 110)');
+  });
+
+  it('sem banco: iniciais do nome e cor neutra', () => {
+    expect(corDoMeio({ nome: 'Pix' })).toBe('#57534E');
+    const { container } = render(<LogoMeio meio={{ nome: 'Vale refeição' }} />);
+    expect(container.textContent).toBe('VR');
   });
 });

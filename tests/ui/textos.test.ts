@@ -1,7 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import { descreverMudanca, resumoDespesa } from '../../src/ui/textos';
+import { descreverGastosVsMes, descreverMudanca, resumoDespesa } from '../../src/ui/textos';
 import { resolverCadastros } from '../../src/ui/telas/DetalheDespesa';
 import { avulsa, lanc, parcelada, recorrente } from '../fabricas';
+
+describe('descreverGastosVsMes', () => {
+  it.each([
+    [-0.2, 'Gastos 20% menores que em dez/2026'],
+    [0.61, 'Gastos 61% maiores que em dez/2026'],
+    [12.3456, 'Gastos 1.235% maiores que em dez/2026'],
+    [0, 'Gastos iguais aos de dez/2026'],
+    [0.004, 'Gastos iguais aos de dez/2026'],
+    [-0.004, 'Gastos iguais aos de dez/2026'],
+  ])('%d → %s', (fracao, esperado) => {
+    expect(descreverGastosVsMes(fracao, 'dez/2026').replace(/ /g, ' ')).toBe(esperado);
+  });
+});
 
 describe('descreverMudanca', () => {
   it.each([

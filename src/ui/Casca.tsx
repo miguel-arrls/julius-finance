@@ -1,7 +1,8 @@
 import { Navegacao } from './componentes/Navegacao';
 import { usarEstado, type Estado } from './estado';
-import { usarRota, type Rota } from './rota';
+import { caminho, usarRota, type Rota } from './rota';
 import { Ajustes } from './telas/Ajustes';
+import { Analise } from './telas/Analise';
 import { Backup } from './telas/Backup';
 import { BoasVindas } from './telas/BoasVindas';
 import { Categorias } from './telas/Categorias';
@@ -19,15 +20,17 @@ function Tela({ rota, estado }: { rota: Rota; estado: Estado }) {
     case 'inicio':
       return <Inicio estado={estado} />;
     case 'lancamentos':
-      return <Lancamentos estado={estado} />;
+      return <Lancamentos key={caminho(rota)} estado={estado} filtros={rota.filtros} />;
     case 'nova':
-      return <FormDespesa key="nova" estado={estado} />;
+      return <FormDespesa key={caminho(rota)} estado={estado} de={rota.de} />;
     case 'editar':
       return <FormDespesa key={`editar-${rota.id}`} estado={estado} id={rota.id} />;
     case 'despesas':
       return <Despesas estado={estado} />;
     case 'despesa':
       return <DetalheDespesa key={rota.id} estado={estado} id={rota.id} />;
+    case 'analise':
+      return <Analise estado={estado} />;
     case 'ajustes':
       return <Ajustes />;
     case 'categorias':

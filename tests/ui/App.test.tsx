@@ -1,11 +1,14 @@
 import { render, screen, within } from '@testing-library/preact';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { JuliusDB } from '../../src/dados/db';
-import { App } from '../../src/ui/App';
+import { inicializarPadrao } from '../../src/dados/repositorio';
+import { App, LimiteDeErro } from '../../src/ui/App';
+import { ErroLeitura } from '../../src/ui/consulta';
 import { HOJE, novaBase } from './auxiliar';
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
   location.hash = '';
 });
 
@@ -27,12 +30,62 @@ describe('App', () => {
     expect(screen.queryByText('Carregando…')).toBeNull();
   });
 
+  it('sem crypto.randomUUID (http na rede local), a nova despesa abre normalmente', async () => {
+    const base = await novaBase();
+    await inicializarPadrao(base);
+    // Como o Safari por http://192.168.x.x: getRandomValues existe, randomUUID não.
+    const real = globalThis.crypto;
+    vi.stubGlobal('crypto', { getRandomValues: real.getRandomValues.bind(real) });
+    location.hash = '#/nova';
+    render(<App base={base} hoje={HOJE} />);
+    expect(await screen.findByRole('heading', { name: 'Nova despesa' })).toBeInTheDocument();
+  });
+
+  it('erro ao desenhar uma tela não é confundido com armazenamento bloqueado', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const Explode = () => {
+      throw new TypeError('falha de programação');
+    };
+    render(
+      <LimiteDeErro>
+        <Explode />
+      </LimiteDeErro>,
+    );
+    expect(screen.getByRole('heading', { name: 'Algo deu errado nesta tela' })).toBeInTheDocument();
+    expect(screen.queryByText(/janelas privadas/)).toBeNull();
+    expect(screen.getByRole('button', { name: 'Voltar ao início' })).toBeInTheDocument();
+  });
+
+  it('falha de leitura dos dados continua com a mensagem de armazenamento', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const FalhaLeitura = () => {
+      throw new ErroLeitura(new Error('IDB'));
+    };
+    render(
+      <LimiteDeErro>
+        <FalhaLeitura />
+      </LimiteDeErro>,
+    );
+    expect(screen.getByRole('heading', { name: 'Não foi possível abrir seus dados' })).toBeInTheDocument();
+  });
+
   it('abre e mostra a navegação principal', async () => {
     render(<App base={await novaBase()} hoje={HOJE} />);
     const nav = await screen.findByRole('navigation', { name: 'Principal' });
     for (const nome of ['Início', 'Lançamentos', 'Nova despesa', 'Despesas', 'Ajustes']) {
       expect(within(nav).getByRole('link', { name: nome })).toBeInTheDocument();
     }
+  });
+
+  it('a marca Julius na lateral é um link para o início, com o ícone do app', async () => {
+    location.hash = '#/ajustes';
+    render(<App base={await novaBase()} hoje={HOJE} />);
+    const nav = await screen.findByRole('navigation', { name: 'Principal' });
+    const marca = within(nav).getByRole('link', { name: 'Julius' });
+    expect(marca).toHaveAttribute('href', '#/inicio');
+    const icone = marca.querySelector('svg');
+    expect(icone).not.toBeNull();
+    expect(icone).toHaveAttribute('aria-hidden', 'true');
   });
 
   it('marca o grupo da rota atual com aria-current', async () => {

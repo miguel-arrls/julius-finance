@@ -1,4 +1,5 @@
 import { IconEdit, IconTrash } from '@tabler/icons-preact';
+import { novoId } from '../../dados/ids';
 import { useState } from 'preact/hooks';
 import { excluirCategoria, salvarCategoria } from '../../dados/repositorio';
 import { ErroDominio, type Categoria } from '../../dominio/tipos';
@@ -109,7 +110,7 @@ export function Categorias({ estado }: { estado: Estado }) {
   const [excluindo, setExcluindo] = useState<Categoria | null>(null);
   const uso = (id: string) => estado.despesas.filter((d) => d.categoriaId === id).length;
   const nova = (): Categoria => ({
-    id: crypto.randomUUID(),
+    id: novoId(),
     nome: '',
     cor: '#57534E',
     icone: 'dots',

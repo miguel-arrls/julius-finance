@@ -1,4 +1,5 @@
-import type { Categoria, Marca } from '../../dominio/tipos';
+import type { Categoria, Marca, MeioPagamento } from '../../dominio/tipos';
+import { buscarBanco, logoDoBanco } from '../../marcas/bancos';
 import { buscarNoCatalogo } from '../../marcas/identificar';
 import { Icone } from '../icones';
 
@@ -52,6 +53,37 @@ export function Logo({
   return (
     <span class="logo logo-iniciais" style={fundo} aria-hidden="true">
       {iniciais(rotulo)}
+    </span>
+  );
+}
+
+type VisualMeio = Pick<MeioPagamento, 'nome' | 'bancoSlug' | 'cor'>;
+
+/** Cor do cartão: a escolhida → a do banco → neutra. Todas aceitam texto branco com contraste AA. */
+export function corDoMeio(meio: VisualMeio): string {
+  return meio.cor ?? buscarBanco(meio.bancoSlug)?.cor ?? COR_PADRAO;
+}
+
+/**
+ * Avatar do meio de pagamento na cor do cartão: logo do banco em branco, ou as iniciais do banco (ou do nome).
+ * Decorativo (o nome aparece ao lado), por isso aria-hidden.
+ */
+export function LogoMeio({ meio, tamanho = 40 }: { meio: VisualMeio; tamanho?: number }) {
+  const estilo = { width: `${tamanho}px`, height: `${tamanho}px`, backgroundColor: corDoMeio(meio) };
+  const item = logoDoBanco(meio.bancoSlug);
+  if (item) {
+    const lado = Math.round(tamanho * 0.55);
+    return (
+      <span class="logo logo-meio" style={estilo} aria-hidden="true">
+        <svg viewBox="0 0 24 24" width={lado} height={lado}>
+          <path d={item.path} fill="#ffffff" />
+        </svg>
+      </span>
+    );
+  }
+  return (
+    <span class="logo logo-meio" style={{ ...estilo, fontSize: `${Math.round(tamanho * 0.34)}px` }} aria-hidden="true">
+      {iniciais(buscarBanco(meio.bancoSlug)?.nome ?? meio.nome)}
     </span>
   );
 }

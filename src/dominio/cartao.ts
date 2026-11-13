@@ -20,3 +20,9 @@ export function vencimentoNoCartao(dataCobranca: DataISO, diaFechamento: number,
   }
   return vencimento;
 }
+
+/** Fechamento da fatura que vence em `vencimento`: o último dia `diaFechamento` antes dele. */
+export function fechamentoDaFatura(vencimento: DataISO, diaFechamento: number): DataISO {
+  const fechamento = dataNoMes(mesDe(vencimento), diaFechamento);
+  return fechamento < vencimento ? fechamento : dataNoMes(somarMesesAoMes(mesDe(vencimento), -1), diaFechamento);
+}

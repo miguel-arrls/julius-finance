@@ -23,7 +23,7 @@ const novaBase = async () => {
 
 async function popular(base: JuliusDB): Promise<void> {
   await repo.inicializarPadrao(base);
-  await repo.salvarMeio(base, CARTAO, HOJE);
+  await repo.salvarMeio(base, { ...CARTAO, nome: 'Cartão ⟦roxo⟧ ção', bancoSlug: 'nubank', cor: '#7C3AED' }, HOJE);
   await repo.salvarMarca(base, { id: 'm1', nome: 'Padaria São João', apelidos: ['Pão ⟦quente⟧'] });
   await repo.salvarDespesa(base, avulsa({ descricao: 'Açaí & Cia — ção ⟦⟧', marcaId: 'm1', observacoes: 'aspas "duplas"\nlinha 2' }), { hoje: HOJE });
   await repo.salvarDespesa(base, recorrente({ meioPagamentoId: CARTAO.id }), { hoje: HOJE });
@@ -190,6 +190,11 @@ describe('lerBackup rejeita arquivos ruins com mensagem clara', () => {
       'meio com tipo desconhecido',
       (a) => ({ ...a, dados: { ...a.dados, meiosPagamento: [{ id: 'x', nome: 'Talão', tipo: 'cheque' }] } }),
       'Arquivo inválido: meiosPagamento[0].tipo ausente ou com tipo errado.',
+    ],
+    [
+      'meio com banco de tipo errado',
+      (a) => ({ ...a, dados: { ...a.dados, meiosPagamento: [{ id: 'x', nome: 'Cartão', tipo: 'credito', bancoSlug: 7 }] } }),
+      'Arquivo inválido: meiosPagamento[0].bancoSlug ausente ou com tipo errado.',
     ],
     [
       'despesa com data de compra inválida',

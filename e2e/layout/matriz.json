@@ -1,0 +1,30 @@
+{
+  "larguras": [320, 375, 390, 430, 768, 1024, 1280],
+  "temas": ["claro", "escuro"],
+  "cenarios": ["vazio", "tipico", "carregado"],
+  "axeLarguras": [390, 1280],
+  "telas": [
+    { "nome": "boas-vindas", "soVazio": true },
+    { "nome": "inicio" },
+    { "nome": "lancamentos" },
+    { "nome": "lancamentos-por-cartao", "precisaDados": true },
+    { "nome": "despesas-recorrentes" },
+    { "nome": "despesas-parceladas" },
+    { "nome": "despesas-avulsas" },
+    { "nome": "despesa-parcelada", "precisaDados": true },
+    { "nome": "despesa-recorrente", "precisaDados": true },
+    { "nome": "editar-avulsa", "precisaDados": true },
+    { "nome": "nova-avulsa" },
+    { "nome": "nova-avulsa-no-cartao", "precisaDados": true },
+    { "nome": "nova-parcelada" },
+    { "nome": "nova-recorrente" },
+    { "nome": "folha-novo-cartao" },
+    { "nome": "analise" },
+    { "nome": "ajustes" },
+    { "nome": "categorias" },
+    { "nome": "marcas" },
+    { "nome": "meios" },
+    { "nome": "backup" },
+    { "nome": "dados" }
+  ]
+}

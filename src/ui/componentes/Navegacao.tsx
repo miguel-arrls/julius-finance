@@ -1,7 +1,8 @@
-import { IconHome, IconListDetails, IconPlus, IconRepeat, IconSettings } from '@tabler/icons-preact';
+import { IconChartBar, IconHome, IconListDetails, IconPlus, IconRepeat, IconSettings } from '@tabler/icons-preact';
 import type { Rota } from '../rota';
+import { LogoJulius } from './LogoJulius';
 
-type Grupo = 'inicio' | 'lancamentos' | 'nova' | 'despesas' | 'ajustes';
+type Grupo = 'inicio' | 'lancamentos' | 'nova' | 'despesas' | 'analise' | 'ajustes';
 
 function grupoDaRota(tela: Rota['tela']): Grupo {
   if (tela === 'despesa' || tela === 'editar') return 'despesas';
@@ -9,32 +10,36 @@ function grupoDaRota(tela: Rota['tela']): Grupo {
   return tela;
 }
 
-const ITENS = [
+/** Abas do celular. Ajustes fica na engrenagem do Início (e na lateral, no PC). */
+const ABAS = [
   { grupo: 'inicio', rotulo: 'Início', href: '#/inicio', Icone: IconHome },
   { grupo: 'lancamentos', rotulo: 'Lançamentos', href: '#/lancamentos', Icone: IconListDetails },
   { grupo: 'despesas', rotulo: 'Despesas', href: '#/despesas', Icone: IconRepeat },
-  { grupo: 'ajustes', rotulo: 'Ajustes', href: '#/ajustes', Icone: IconSettings },
+  { grupo: 'analise', rotulo: 'Análise', href: '#/analise', Icone: IconChartBar },
 ] as const;
 
 export function Navegacao({ rota }: { rota: Rota }) {
   const atual = grupoDaRota(rota.tela);
-  const link = (i: (typeof ITENS)[number]) => (
-    <a key={i.grupo} href={i.href} class="nav-item" aria-current={atual === i.grupo ? 'page' : undefined}>
-      <i.Icone size={24} stroke={1.75} aria-hidden="true" />
-      <span>{i.rotulo}</span>
-    </a>
-  );
   return (
     <nav class="navegacao" aria-label="Principal">
-      <span class="nav-marca">Julius</span>
-      {link(ITENS[0])}
-      {link(ITENS[1])}
+      <a href="#/inicio" class="nav-marca">
+        <LogoJulius />
+        <span>Julius</span>
+      </a>
       <a href="#/nova" class="nav-nova" aria-label="Nova despesa" aria-current={atual === 'nova' ? 'page' : undefined}>
-        <IconPlus size={28} stroke={2} aria-hidden="true" />
+        <IconPlus size={28} stroke={2.2} aria-hidden="true" />
         <span class="nav-nova-rotulo">Nova despesa</span>
       </a>
-      {link(ITENS[2])}
-      {link(ITENS[3])}
+      {ABAS.map((i) => (
+        <a key={i.grupo} href={i.href} class="nav-item" aria-current={atual === i.grupo ? 'page' : undefined}>
+          <i.Icone size={24} stroke={1.75} aria-hidden="true" />
+          <span>{i.rotulo}</span>
+        </a>
+      ))}
+      <a href="#/ajustes" class="nav-item nav-so-largo" aria-current={atual === 'ajustes' ? 'page' : undefined}>
+        <IconSettings size={24} stroke={1.75} aria-hidden="true" />
+        <span>Ajustes</span>
+      </a>
     </nav>
   );
 }

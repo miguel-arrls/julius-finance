@@ -5,6 +5,7 @@ import { materializarTodas } from '../dados/repositorio';
 import { hojeISO } from '../dominio/datas';
 import type { DataISO } from '../dominio/tipos';
 import { Casca } from './Casca';
+import { ErroLeitura } from './consulta';
 import { Provedores } from './Provedores';
 
 function ErroArmazenamento() {
@@ -20,16 +21,38 @@ function ErroArmazenamento() {
   );
 }
 
-class LimiteDeErro extends Component<{ children: ComponentChildren }, { falhou: boolean }> {
-  state = { falhou: false };
-  static getDerivedStateFromError() {
-    return { falhou: true };
+function ErroTela() {
+  return (
+    <main class="erro-armazenamento">
+      <h1>Algo deu errado nesta tela</h1>
+      <p>Seus dados continuam guardados neste aparelho. Volte ao início e tente de novo.</p>
+      <button
+        type="button"
+        class="botao botao-primario"
+        onClick={() => {
+          location.hash = '#/inicio';
+          location.reload();
+        }}
+      >
+        Voltar ao início
+      </button>
+    </main>
+  );
+}
+
+/** Falha de leitura do banco mostra o aviso de armazenamento; qualquer outro erro, o aviso de erro na tela. */
+export class LimiteDeErro extends Component<{ children: ComponentChildren }, { erro: unknown }> {
+  state = { erro: undefined as unknown };
+  static getDerivedStateFromError(erro: unknown) {
+    return { erro: erro ?? new Error('Erro desconhecido') };
   }
   componentDidCatch(erro: unknown) {
     console.error(erro);
   }
   render() {
-    return this.state.falhou ? <ErroArmazenamento /> : this.props.children;
+    const { erro } = this.state;
+    if (erro === undefined) return this.props.children;
+    return erro instanceof ErroLeitura ? <ErroArmazenamento /> : <ErroTela />;
   }
 }
 
